@@ -24,8 +24,10 @@ type DeviceReg struct {
 // DeviceStatus : its just registration of the devie but with lock status as well
 // the data model on the cloud, this is just one field extra from the data model on the device
 type DeviceStatus struct {
-	*DeviceReg
-	Lock bool `json:"lock" bson:"lock"`
+	// https://stackoverflow.com/questions/19279456/golang-mongodb-embedded-type-embedding-a-struct-in-another-struct
+	// the bson inline flag helps us to have an embedded object inline and still query the db
+	DeviceReg `bson:",inline"`
+	Lock      bool `json:"lock" bson:"lock"`
 }
 
 // DeviceRegColl : derivation of the mgo collection so that we can have extended functions

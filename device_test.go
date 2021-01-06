@@ -91,3 +91,60 @@ func TestDeviceLogin(t *testing.T) {
 	assert.Nil(t, err, "No error expected from LoginDevice")
 
 }
+
+func TestFindUserDevices(t *testing.T) {
+	t.Log("############### now for the user that is in the database ############### ")
+	coll, sessionClose, _ := lclDbConnect()
+	defer sessionClose()
+	result, err := coll.FindUserDevices("kneeru@gmail.com")
+	assert.Nil(t, err, "Error in FindUserDevices")
+	t.Error(err)
+	for _, r := range result {
+		t.Log(r)
+	}
+	// Now the user thats not existent
+	t.Log("############### now for the user that isnt in the database ############### ")
+	result, err = coll.FindUserDevices("unknown@gmail.com")
+	assert.Nil(t, err, "Error in FindUserDevices")
+	t.Error(err)
+	// We woudl be expecting empty result
+	for _, r := range result {
+		t.Log(r)
+	}
+
+}
+
+func TestDeviceOfSerial(t *testing.T) {
+	t.Log("############### now for the user that is in the database ############### ")
+	coll, sessionClose, _ := lclDbConnect()
+	defer sessionClose()
+	result, err := coll.DeviceOfSerial("000000007920365b")
+	assert.Nil(t, err, "Error in DeviceOfSerial")
+	t.Error(err)
+	t.Log(result)
+
+	t.Log("############### now for the user that isnt in the database ############### ")
+	result, err = coll.DeviceOfSerial("000000007920365c")
+	assert.Nil(t, err, "Error in DeviceOfSerial")
+	t.Error(err)
+	t.Log(result)
+}
+
+func TestInsertDeviceReg(t *testing.T) {
+	reg, _ := ThisDeviceReg("kneeru@gmail.com")
+	status := DeviceStatus{*reg, false}
+	coll, sessionClose, _ := lclDbConnect()
+	defer sessionClose()
+	err := coll.InsertDeviceReg(&status)
+	assert.NotNil(t, err, "Inserting the same device registration we were expecting an error")
+	t.Log(err)
+
+	// Lets alter the device serial and try again, we can then test the delete function as well
+	reg.Serial = "000000007920365c"
+	status = DeviceStatus{*reg, false}
+	err = coll.InsertDeviceReg(&status)
+	assert.Nil(t, err, "Inserting a unique serial number in the database should not have yeilded an error")
+
+	err = coll.RemoveDeviceReg("000000007920365c")
+	assert.Nil(t, err, "Wasnt expecting an error when removing the device registration")
+}
