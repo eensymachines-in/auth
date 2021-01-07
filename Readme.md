@@ -9,7 +9,7 @@ The microservice that establishes the handshake, verifies the device registratio
 -----------
 
 Device registration happens only once and needs a user name - a user name thats already registered. Once the device is registered it can only authorize on the subsequent handshakes.
-If the device registration is deleted, and the `uuid` is banned, it can no longer re-register itself. Registration is allowed only incase of no registration found and the serial is not banned. 
+If the device registration is deleted, and the `uuid` is blacklisted, it can no longer re-register itself. Registration is allowed only incase of no registration found and the serial is not banned. 
 
 - Uniquely identifies the device 
 - connects the device to user account 

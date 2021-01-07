@@ -132,6 +132,18 @@ func LoginDevice(url string) (ok, lock bool, err error) {
 	return
 }
 
+// ErrQueryFailed : when the mongo query fails
+type ErrQueryFailed error
+
+// ErrDuplicate : this is when duplicate insertion
+type ErrDuplicate error
+
+// ErrNotFound : this is when no result is fetched and atleast one was expected
+type ErrNotFound error
+
+// ErrInvalid : this is when one or more fields are invalid and cannot proceed with query
+type ErrInvalid error
+
 /*Functions on the cloud -----------------
 this involves majority of it as mongo DB queries and managing the data state on the database
 Please see the data-model on cloud is a bit different than on the device*/
@@ -141,7 +153,7 @@ func (drc *DeviceRegColl) FindUserDevices(u string) ([]DeviceStatus, error) {
 	result := []DeviceStatus{}
 	q := bson.M{"user": u}
 	if err := drc.Find(q).All(&result); err != nil {
-		return nil, fmt.Errorf("FindUserDevices: failed query %s", err)
+		return nil, ErrQueryFailed(fmt.Errorf("FindUserDevices: failed query %s", err))
 	}
 	return result, nil
 }
@@ -151,7 +163,7 @@ func (drc *DeviceRegColl) DeviceOfSerial(s string) (*DeviceStatus, error) {
 	result := DeviceStatus{}
 	q := bson.M{"serial": s}
 	if err := drc.Find(q).One(&result); err != nil {
-		return nil, fmt.Errorf("FindUserDevices: failed query %s", err)
+		return nil, ErrQueryFailed(fmt.Errorf("FindUserDevices: failed query %s", err))
 	}
 	return &result, nil
 }
@@ -159,17 +171,17 @@ func (drc *DeviceRegColl) DeviceOfSerial(s string) (*DeviceStatus, error) {
 // InsertDeviceReg : inserts new device registration
 func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceStatus) error {
 	if dr.Serial == "" || dr.User == "" {
-		return fmt.Errorf("Invalid device registration details, User and serial fields cannot be empty")
+		return ErrInvalid(fmt.Errorf("Invalid device registration details, User and serial fields cannot be empty"))
 	}
 	// Now to find out if the device has been already registered
 	q := bson.M{"serial": dr.Serial}
 	duplicate := DeviceStatus{}
 	if err := drc.Find(q).One(&duplicate); err == nil {
-		return fmt.Errorf("Device with the same serial is already registered %s", dr.Serial)
+		return ErrDuplicate(fmt.Errorf("Device with the same serial is already registered %s", dr.Serial))
 	}
 	// no checks for the user's existence, that is for the API to check, here we register the device even if the user is not reg
 	if err := drc.Insert(dr); err != nil {
-		return fmt.Errorf("")
+		return ErrQueryFailed(fmt.Errorf("InsertDeviceReg: failed insertion query %s", err))
 	}
 	return nil
 }
@@ -178,11 +190,11 @@ func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceStatus) error {
 // this is not recoverable, and there is no backup to this
 func (drc *DeviceRegColl) RemoveDeviceReg(serial string) error {
 	if serial == "" {
-		return fmt.Errorf("Invalid device serial to remove")
+		return ErrInvalid(fmt.Errorf("Invalid device serial to remove"))
 	}
 	q := bson.M{"serial": serial}
 	if err := drc.Remove(q); err != nil {
-		return fmt.Errorf("RemoveDeviceReg: failed database operation")
+		return ErrQueryFailed(fmt.Errorf("RemoveDeviceReg: failed database operation"))
 	}
 	return nil
 }
@@ -191,10 +203,10 @@ func (drc *DeviceRegColl) RemoveDeviceReg(serial string) error {
 // the device on the ground can be working, but it would lose all its communication to the cloud
 func (drc *DeviceRegColl) LockDevice(serial string) error {
 	if serial == "" {
-		return fmt.Errorf("Invalid device serial to lock")
+		return ErrInvalid(fmt.Errorf("Invalid device serial to lock"))
 	}
 	if err := drc.Update(bson.M{"serial": serial}, bson.M{"$set": bson.M{"lock": true}}); err != nil {
-		return fmt.Errorf("LockDevice: failed database operation")
+		return ErrQueryFailed(fmt.Errorf("LockDevice: failed database operation"))
 	}
 	return nil
 }
@@ -202,10 +214,10 @@ func (drc *DeviceRegColl) LockDevice(serial string) error {
 // UnLockDevice : this can unlock the device and then again the device is live
 func (drc *DeviceRegColl) UnLockDevice(serial string) error {
 	if serial == "" {
-		return fmt.Errorf("Invalid device serial to lock")
+		return ErrInvalid(fmt.Errorf("Invalid device serial to lock"))
 	}
 	if err := drc.Update(bson.M{"serial": serial}, bson.M{"$set": bson.M{"lock": false}}); err != nil {
-		return fmt.Errorf("LockDevice: failed database operation")
+		return ErrQueryFailed(fmt.Errorf("LockDevice: failed database operation"))
 	}
 	return nil
 }
