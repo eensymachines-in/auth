@@ -70,6 +70,32 @@ func ThisDeviceReg(u string) (*DeviceReg, error) {
 	return &result, nil
 }
 
+// Register : takes the device details and posts it on the api
+// error incase the registration has failed or forbidden registration incase the device is black listed
+// if already registered
+func (devreg DeviceReg) Register(url string) (err error) {
+	jsonData, _ := json.Marshal(&devreg)
+	body := bytes.NewBuffer(jsonData)
+	resp, httperr := http.Post(url, "application/json", body)
+	if httperr != nil {
+		err = fmt.Errorf("Register: Failed request, check the url")
+	}
+	if resp.StatusCode == http.StatusInternalServerError {
+		err = fmt.Errorf("Register: Internal problem registering new device")
+		return
+	}
+	if resp.StatusCode == http.StatusBadRequest {
+		// err = fmt.Errorf("Register: Already registered device, cannot register again")
+		// here we need not report any error, since the device is registered already
+		return
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		err = fmt.Errorf("Register: Forbidden device registration, device maybe blacklisted")
+		return
+	}
+	return
+}
+
 // LoginDevice : takes the device registration and verifies the same with uplinked server
 // function used from the ground device to connect to server and verify device auth
 // url: devices/<serial>. make this url and send it across for the device to login
