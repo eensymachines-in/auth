@@ -30,11 +30,6 @@ type DeviceStatus struct {
 	Lock      bool `json:"lock" bson:"lock"`
 }
 
-// DeviceRegColl : derivation of the mgo collection so that we can have extended functions
-type DeviceRegColl struct {
-	*mgo.Collection
-}
-
 // DeviceAuthResponse : when the device is authenticated with the server json is unmarshalled into this form
 // check function LoginDevice - that generates this kind of response
 type DeviceAuthResponse struct {
@@ -194,6 +189,11 @@ type ErrInvalid error
 // ErrForbid : this is when the action is not allowed
 type ErrForbid error
 
+// DeviceRegColl : derivation of the mgo collection so that we can have extended functions
+type DeviceRegColl struct {
+	*mgo.Collection
+}
+
 /*Functions on the cloud -----------------
 this involves majority of it as mongo DB queries and managing the data state on the database
 Please see the data-model on cloud is a bit different than on the device*/
@@ -280,4 +280,49 @@ func (drc *DeviceRegColl) UnLockDevice(serial string) error {
 		return ErrQueryFailed(fmt.Errorf("LockDevice: failed database operation"))
 	}
 	return nil
+}
+
+// Blacklist : the record storing the blacklist of devices
+// this list is volatile and can be modifed by the admin
+// once blacklisted the device cannot register itself and hence can work only offline
+type Blacklist struct {
+	Serial string `json:"serial" bson:"serial"`
+	Reason string `json:"reason" bson:"serial"`
+}
+
+// BlacklistColl : represents the collection that stores the blacklist records
+type BlacklistColl struct {
+	*mgo.Collection
+}
+
+// Black : will black list the device serial if not already done
+func (blckcoll *BlacklistColl) Black(bl *Blacklist) error {
+	if bl.Serial == "" {
+		return ErrInvalid(fmt.Errorf("Serial %s of the device to blacklist cannot be empty", bl.Serial))
+	}
+	count, _ := blckcoll.Find(bson.M{"serial": bl.Serial}).Count()
+	if count == 0 {
+		// this is when the device is not balcklisted
+		// so we go ahead to blacklist the device
+		if blckcoll.Insert(bl) != nil {
+			return ErrQueryFailed(fmt.Errorf("Failed to insert new blacklisting"))
+		}
+	}
+	return nil // incase the device is already listed we cannot blacklist again
+}
+
+// White : will remove the device from the black list and hence the device can once again re-register itself
+func (blckcoll *BlacklistColl) White(serial string) error {
+	if serial == "" {
+		return ErrInvalid(fmt.Errorf("Serial %s of the device to blacklist cannot be empty", serial))
+	}
+	count, _ := blckcoll.Find(bson.M{"serial": serial}).Count()
+	if count == 1 {
+		// this is when the device is not balcklisted
+		// so we go ahead to blacklist the device
+		if blckcoll.Remove(bson.M{"serial": serial}) != nil {
+			return ErrQueryFailed(fmt.Errorf("Failed to insert new blacklisting"))
+		}
+	}
+	return nil // incase the device is already listed we cannot blacklist again
 }
