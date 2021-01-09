@@ -70,6 +70,89 @@ func ThisDeviceReg(u string) (*DeviceReg, error) {
 	return &result, nil
 }
 
+// getHTTP : generic http request with result reading function that is customizable
+func getHTTP(url string, readresult func(body []byte) error) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("getHttp: Failed to request device details @ %s", url)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("getHttp: Bad request, check the inputs and send again")
+	}
+	if resp.StatusCode == http.StatusInternalServerError {
+		return fmt.Errorf("getHttp: Internal problem getting device details")
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("getHttp: failed, Unknown/invalid response from server")
+	}
+	defer resp.Body.Close()
+	// below the body is read in a specific way that each of the function wants
+	// implementation to this shall be customized for each of the function
+	return readresult(body)
+}
+
+// IsRegistered : takes a url to register the device, and then check to see if we get any active registration
+// Pl note this does not check if the device is locked / blacklisted
+func IsRegistered(url string) (ok bool, err error) {
+	err = getHTTP(url, func(body []byte) error {
+		status := DeviceStatus{}
+		err = json.Unmarshal(body, &status)
+		if err != nil {
+			ok = false
+			return fmt.Errorf("IsRegistered: failed to read device status in the response payload %s", err)
+		}
+		if (DeviceStatus{}) == status {
+			ok = false
+			return nil
+		}
+		ok = true
+		return nil
+	})
+	return
+}
+
+// IsLocked : finds if the device is locked, can is recommended to keep it offline
+// in this state the device can no longer have cloud communication
+func IsLocked(url string) (yes bool, err error) {
+	err = getHTTP(url, func(body []byte) error {
+		status := DeviceStatus{}
+		err = json.Unmarshal(body, &status)
+		if err != nil {
+			yes = false
+			return fmt.Errorf("IsRegistered: failed to read device status in the response payload %s", err)
+		}
+		if (DeviceStatus{}) == status {
+			// If it aint registered then cannot be locked
+			yes = false
+			return nil
+		}
+		yes = status.Lock
+		return nil
+	})
+	return
+}
+
+// IsOwnedBy : tries to verify if the owner of the device is matching
+// this can be used in the login process
+func IsOwnedBy(url string, user string) (yes bool, err error) {
+	err = getHTTP(url, func(body []byte) error {
+		status := DeviceStatus{}
+		err = json.Unmarshal(body, &status)
+		if err != nil {
+			yes = false
+			return fmt.Errorf("IsRegistered: failed to read device status in the response payload %s", err)
+		}
+		if (DeviceStatus{}) == status {
+			yes = false
+			return nil
+		}
+		yes = (user == status.User)
+		return nil
+	})
+	return
+}
+
 // Register : takes the device details and posts it on the api
 // error incase the registration has failed or forbidden registration incase the device is black listed
 // if already registered
@@ -96,42 +179,6 @@ func (devreg DeviceReg) Register(url string) (err error) {
 	return
 }
 
-// LoginDevice : takes the device registration and verifies the same with uplinked server
-// function used from the ground device to connect to server and verify device auth
-// url: devices/<serial>. make this url and send it across for the device to login
-func LoginDevice(url string) (ok, lock bool, err error) {
-	ok = false
-	lock = false
-	err = nil
-	resp, err := http.Get(url)
-	if err != nil {
-		err = fmt.Errorf("LoginDevice: Failed to request device details @ %s", url)
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusNotFound {
-		return
-	}
-	if resp.StatusCode == http.StatusInternalServerError {
-		err = fmt.Errorf("LoginDevice: Internal problem getting device details")
-		return
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		err = fmt.Errorf("LoginDevice: failed, Unknown/invalid response from server")
-		return
-	}
-	status := DeviceStatus{}
-	err = json.Unmarshal(body, &status)
-	if err != nil {
-		err = fmt.Errorf("LoginDevice: failed, Unknown/invalid response from server")
-		return
-	}
-	lock = status.Lock
-	ok = true
-	return
-}
-
 // ErrQueryFailed : when the mongo query fails
 type ErrQueryFailed error
 
@@ -143,6 +190,9 @@ type ErrNotFound error
 
 // ErrInvalid : this is when one or more fields are invalid and cannot proceed with query
 type ErrInvalid error
+
+// ErrForbid : this is when the action is not allowed
+type ErrForbid error
 
 /*Functions on the cloud -----------------
 this involves majority of it as mongo DB queries and managing the data state on the database
@@ -169,9 +219,19 @@ func (drc *DeviceRegColl) DeviceOfSerial(s string) (*DeviceStatus, error) {
 }
 
 // InsertDeviceReg : inserts new device registration
-func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceStatus) error {
+// but will not register if the device is blacklisted
+// please provide the collection where black listed serials are stored
+func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceStatus, blckColl *mgo.Collection) error {
 	if dr.Serial == "" || dr.User == "" {
 		return ErrInvalid(fmt.Errorf("Invalid device registration details, User and serial fields cannot be empty"))
+	}
+	// Checking for black listing
+	if blckColl != nil {
+		// blckColl collection can be nil, in which case the registration will disregard blacklisting
+		if blckColl.Find(bson.M{"serial": dr.Serial}).One(&bson.M{}) == nil {
+			// this indicates the device was blacklisted
+			return ErrForbid(fmt.Errorf("Device cannot be registered if its blacklisted"))
+		} // here the device wasnt blacklisted
 	}
 	// Now to find out if the device has been already registered
 	q := bson.M{"serial": dr.Serial}
