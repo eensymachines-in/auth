@@ -163,14 +163,14 @@ func (devreg DeviceReg) Register(url string) (err error) {
 		return
 	}
 	if resp.StatusCode == http.StatusBadRequest {
-		// err = fmt.Errorf("Register: Already registered device, cannot register again")
-		// here we need not report any error, since the device is registered already
+		err = fmt.Errorf("Register: Invalid device registration details, check and send again")
 		return
 	}
 	if resp.StatusCode == http.StatusForbidden {
 		err = fmt.Errorf("Register: Forbidden device registration, device maybe blacklisted")
 		return
 	}
+	// incase the device is already registered / is successfully registered will return no error
 	return
 }
 
@@ -237,6 +237,7 @@ func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceStatus, blckColl *mgo.Collec
 	q := bson.M{"serial": dr.Serial}
 	duplicate := DeviceStatus{}
 	if err := drc.Find(q).One(&duplicate); err == nil {
+		// this though will not flagged as an error on the api side
 		return ErrDuplicate(fmt.Errorf("Device with the same serial is already registered %s", dr.Serial))
 	}
 	// no checks for the user's existence, that is for the API to check, here we register the device even if the user is not reg
