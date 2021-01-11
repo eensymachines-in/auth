@@ -209,10 +209,16 @@ func (drc *DeviceRegColl) FindUserDevices(u string) ([]DeviceStatus, error) {
 }
 
 // DeviceOfSerial : gets the device with unique serial
+// If the serial is not found then sends back an empty Status
+// Errors only when the query fails
 func (drc *DeviceRegColl) DeviceOfSerial(s string) (*DeviceStatus, error) {
 	result := DeviceStatus{}
 	q := bson.M{"serial": s}
 	if err := drc.Find(q).One(&result); err != nil {
+		if err == mgo.ErrNotFound {
+			// .One() results in this error and in that case we would want nil status
+			return &DeviceStatus{}, nil
+		}
 		return nil, ErrQueryFailed(fmt.Errorf("FindUserDevices: failed query %s", err))
 	}
 	return &result, nil
