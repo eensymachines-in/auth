@@ -37,7 +37,7 @@ func TestDevice(t *testing.T) {
 // lclDbConnect : helps you get a quick connection to local database connection
 // start the mongo container before the tests
 // depending on the database you are trying to connect you may have to change the details inside
-func lclDbConnect() (coll *DeviceRegColl, close func(), err error) {
+func lclDbConnect() (coll *DeviceRegColl, coll2 *BlacklistColl, close func(), err error) {
 	ip := "192.168.0.39"
 	session, err := mgo.Dial(ip)
 	if err != nil {
@@ -49,20 +49,26 @@ func lclDbConnect() (coll *DeviceRegColl, close func(), err error) {
 	c := session.DB("autolumin").C("devreg")
 	if c == nil {
 		log.Error("Failed to get collection")
-		log.Debugf("Collection: %v", c)
+		err = fmt.Errorf("Failed database collection connection")
+		return
+	}
+	c2 := session.DB("autolumin").C("devblacklist")
+	if c2 == nil {
+		log.Error("Failed to get blacklist collection")
 		err = fmt.Errorf("Failed database collection connection")
 		return
 	}
 	log.Debugf("Now connected to the mongo database @ %s", ip)
 	coll = &DeviceRegColl{c}
+	coll2 = &BlacklistColl{c2}
 	return
 }
 
-// APIDeviceOfSerial : quick router handling method for device
-func APIDeviceOfSerial(w http.ResponseWriter, r *http.Request, prm httprouter.Params) {
+/*http handler for test purposes so that we can test apis as well.*/
+func apiDeviceOfSerial(w http.ResponseWriter, r *http.Request, prm httprouter.Params) {
 	// getting the router param
 	serial := prm.ByName("serial")
-	coll, sessionClose, err := lclDbConnect()
+	coll, coll2, sessionClose, err := lclDbConnect()
 	if err != nil {
 		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -70,22 +76,22 @@ func APIDeviceOfSerial(w http.ResponseWriter, r *http.Request, prm httprouter.Pa
 	}
 	defer sessionClose()
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+
 	if r.Method == "GET" {
+		status, err := coll.DeviceOfSerial(serial)
+		if err != nil {
+			log.Error(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(status); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	} else if r.Method == "POST" {
 		queries := r.URL.Query()
 		lock := queries.Get("lock")
-		if lock == "" {
-			// this is us trying to get the serial of the device, nothing more
-			status, err := coll.DeviceOfSerial(serial)
-			if err != nil {
-				log.Error(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			if err := json.NewEncoder(w).Encode(status); err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-		} else {
+		if lock != "" {
 			// trying to alter the device lock status
 			lockstatus, err := strconv.ParseBool(lock)
 			if err != nil {
@@ -104,17 +110,36 @@ func APIDeviceOfSerial(w http.ResponseWriter, r *http.Request, prm httprouter.Pa
 				}
 			}
 		}
-		w.WriteHeader(http.StatusOK)
-		return
+		black := queries.Get("black")
+		if black != "" {
+			blackstatus, err := strconv.ParseBool(black)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			if blackstatus {
+				if coll2.Black(&Blacklist{serial, "Changing black status from apiDeviceOfSerial"}) != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+			} else {
+				if coll2.White(serial) != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+			}
+		}
 	}
-
+	w.WriteHeader(http.StatusOK)
+	return
 }
 
 func TestDeviceLogin(t *testing.T) {
 	// we quickly start a small http server so that we can test the login function
 	go func() {
 		router := httprouter.New()
-		router.GET("/devices/:serial", APIDeviceOfSerial)
+		router.GET("/devices/:serial", apiDeviceOfSerial)
+		router.POST("/devices/:serial", apiDeviceOfSerial)
 		log.Fatal(http.ListenAndServe(":8080", router))
 	}()
 	reg, err := ThisDeviceReg("kneeru@gmail.com")
@@ -129,7 +154,7 @@ func TestDeviceLogin(t *testing.T) {
 	assert.Nil(t, err, fmt.Sprintf("Unexpected error when IsRegistered %s", err))
 
 	t.Log("------------------ Now locking the device --------------------")
-	resp, err := http.Get(fmt.Sprintf("http://localhost:8080/devices/%s?lock=true", reg.Serial))
+	resp, err := http.Post(fmt.Sprintf("http://localhost:8080/devices/%s?lock=true", reg.Serial), "application/json", nil)
 	assert.Nil(t, err, "Did not expect error making the lock request")
 	assert.Equal(t, resp.StatusCode, 200, "Was expecting 200 OK when locking the device")
 
@@ -139,7 +164,7 @@ func TestDeviceLogin(t *testing.T) {
 	assert.Nil(t, err, fmt.Sprintf("Unexpected error when IsRegistered %s", err))
 
 	t.Log("------------------ Now unlocking the device --------------------")
-	resp, err = http.Get(fmt.Sprintf("http://localhost:8080/devices/%s?lock=false", reg.Serial))
+	resp, err = http.Post(fmt.Sprintf("http://localhost:8080/devices/%s?lock=false", reg.Serial), "application/json", nil)
 	assert.Nil(t, err, "Did not expect error making the lock request")
 	assert.Equal(t, resp.StatusCode, 200, "Was expecting 200 OK when unlocking the device")
 
@@ -170,19 +195,17 @@ func TestDeviceLogin(t *testing.T) {
 
 func TestFindUserDevices(t *testing.T) {
 	t.Log("############### now for the user that is in the database ############### ")
-	coll, sessionClose, _ := lclDbConnect()
+	coll, _, sessionClose, _ := lclDbConnect()
 	defer sessionClose()
 	result, err := coll.FindUserDevices("kneeru@gmail.com")
-	assert.Nil(t, err, "Error in FindUserDevices")
-	t.Error(err)
+	assert.Nil(t, err, fmt.Sprintf("Error in FindUserDevices %s", err))
 	for _, r := range result {
 		t.Log(r)
 	}
 	// Now the user thats not existent
 	t.Log("############### now for the user that isnt in the database ############### ")
 	result, err = coll.FindUserDevices("unknown@gmail.com")
-	assert.Nil(t, err, "Error in FindUserDevices")
-	t.Error(err)
+	assert.Nil(t, err, fmt.Sprintf("Error in FindUserDevices %s", err))
 	// We woudl be expecting empty result
 	for _, r := range result {
 		t.Log(r)
@@ -192,16 +215,14 @@ func TestFindUserDevices(t *testing.T) {
 
 func TestDeviceOfSerial(t *testing.T) {
 	t.Log("############### now for the user that is in the database ############### ")
-	coll, sessionClose, _ := lclDbConnect()
+	coll, _, sessionClose, _ := lclDbConnect()
 	defer sessionClose()
 	result, err := coll.DeviceOfSerial("000000007920365b")
-	assert.Nil(t, err, "Error in DeviceOfSerial")
-	t.Error(err)
+	assert.Nil(t, err, fmt.Sprintf("Error in DeviceOfSerial %s", err))
 	t.Log(result)
 
 	t.Log("############### now for the user that isnt in the database ############### ")
 	result, err = coll.DeviceOfSerial("000000007920365c")
-	assert.Nil(t, err, "Error in DeviceOfSerial")
-	t.Error(err)
+	assert.Nil(t, err, fmt.Sprintf("Error in DeviceOfSerial %s", err))
 	t.Log(result)
 }
