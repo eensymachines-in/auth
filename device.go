@@ -227,7 +227,7 @@ func (drc *DeviceRegColl) DeviceOfSerial(s string) (*DeviceStatus, error) {
 // InsertDeviceReg : inserts new device registration
 // but will not register if the device is blacklisted
 // please provide the collection where black listed serials are stored
-func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceStatus, blckColl *mgo.Collection) error {
+func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceReg, blckColl *mgo.Collection) error {
 	if dr.Serial == "" || dr.User == "" {
 		return ErrInvalid(fmt.Errorf("Invalid device registration details, User and serial fields cannot be empty"))
 	}

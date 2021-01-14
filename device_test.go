@@ -133,6 +133,49 @@ func apiDeviceOfSerial(w http.ResponseWriter, r *http.Request, prm httprouter.Pa
 	w.WriteHeader(http.StatusOK)
 	return
 }
+func apiDevices(w http.ResponseWriter, r *http.Request, prm httprouter.Params) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	coll, coll2, sessionClose, err := lclDbConnect()
+	if err != nil {
+		log.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer sessionClose()
+	if r.Method == "POST" {
+		decoder := json.NewDecoder(r.Body)
+		reg := &DeviceReg{}
+		err := decoder.Decode(reg)
+		if err != nil {
+			log.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		err = coll.InsertDeviceReg(reg, coll2.Collection)
+		if _, ok := err.(ErrInvalid); ok {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		} else if _, ok := err.(ErrForbid); ok {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		} else if _, ok := err.(ErrDuplicate); ok {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+}
+func TestMockApi(t *testing.T) {
+	go func() {
+		router := httprouter.New()
+		router.GET("/devices/:serial", apiDeviceOfSerial)
+		router.POST("/devices/:serial", apiDeviceOfSerial)
+		router.POST("/devices/", apiDevices)
+		log.Fatal(http.ListenAndServe(":8080", router))
+	}()
+}
 
 func TestDeviceLogin(t *testing.T) {
 	// we quickly start a small http server so that we can test the login function
