@@ -161,20 +161,20 @@ func apiDevices(w http.ResponseWriter, r *http.Request, prm httprouter.Params) {
 		} else if _, ok := err.(ErrDuplicate); ok {
 			w.WriteHeader(http.StatusBadRequest)
 			return
-		} else {
+		} else if _, ok := err.(ErrQueryFailed); ok {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 }
 func TestMockApi(t *testing.T) {
-	go func() {
-		router := httprouter.New()
-		router.GET("/devices/:serial", apiDeviceOfSerial)
-		router.POST("/devices/:serial", apiDeviceOfSerial)
-		router.POST("/devices/", apiDevices)
-		log.Fatal(http.ListenAndServe(":8080", router))
-	}()
+	router := httprouter.New()
+	router.GET("/devices/:serial", apiDeviceOfSerial)
+	router.POST("/devices/:serial", apiDeviceOfSerial)
+	router.POST("/devices/", apiDevices)
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
 func TestDeviceLogin(t *testing.T) {

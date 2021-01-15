@@ -247,7 +247,9 @@ func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceReg, blckColl *mgo.Collectio
 		return ErrDuplicate(fmt.Errorf("Device with the same serial is already registered %s", dr.Serial))
 	}
 	// no checks for the user's existence, that is for the API to check, here we register the device even if the user is not reg
-	if err := drc.Insert(dr); err != nil {
+	// Before inserting a new devreg, it'd converted to a status with lock status and then inserted
+	ds := &DeviceStatus{DeviceReg: *dr, Lock: false}
+	if err := drc.Insert(ds); err != nil {
 		return ErrQueryFailed(fmt.Errorf("InsertDeviceReg: failed insertion query %s", err))
 	}
 	return nil
