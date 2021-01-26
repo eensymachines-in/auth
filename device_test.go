@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/globalsign/mgo"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/mgo.v2"
 )
 
 func init() {
@@ -174,7 +174,7 @@ func TestMockApi(t *testing.T) {
 	router.GET("/devices/:serial", apiDeviceOfSerial)
 	router.POST("/devices/:serial", apiDeviceOfSerial)
 	router.POST("/devices/", apiDevices)
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(http.ListenAndServe("0.0.0.0:8080", router))
 }
 
 func TestDeviceLogin(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"os/exec"
 
-	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // DeviceReg : data model of the device registration on the device
@@ -69,7 +69,7 @@ func ThisDeviceReg(u string) (*DeviceReg, error) {
 func getHTTP(url string, readresult func(body []byte) error) error {
 	resp, err := http.Get(url)
 	if err != nil {
-		return fmt.Errorf("getHttp: Failed to request device details @ %s", url)
+		return fmt.Errorf("getHttp: Failed to request device details @ %s, %s", url, err)
 	}
 	if resp.StatusCode == http.StatusNotFound {
 		return fmt.Errorf("getHttp: Bad request, check the inputs and send again")
