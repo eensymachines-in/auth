@@ -296,7 +296,7 @@ func (drc *DeviceRegColl) UnLockDevice(serial string) error {
 // once blacklisted the device cannot register itself and hence can work only offline
 type Blacklist struct {
 	Serial string `json:"serial" bson:"serial"`
-	Reason string `json:"reason" bson:"serial"`
+	Reason string `json:"reason" bson:"reason"`
 }
 
 // BlacklistColl : represents the collection that stores the blacklist records
