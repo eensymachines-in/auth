@@ -224,6 +224,18 @@ func (drc *DeviceRegColl) DeviceOfSerial(s string) (*DeviceStatus, error) {
 	return &result, nil
 }
 
+// IsDeviceRegistered : tries to get if the device is already registered in the database
+func (drc *DeviceRegColl) IsDeviceRegistered(serial string) (bool, error) {
+	c, err := drc.Find(bson.M{"serial": serial}).Count()
+	if err != nil {
+		return false, ErrQueryFailed(fmt.Errorf("Getting device by serial: failed query %s", err)) // failed query
+	}
+	if c > 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
 // InsertDeviceReg : inserts new device registration
 // but will not register if the device is blacklisted
 // please provide the collection where black listed serials are stored
@@ -271,22 +283,30 @@ func (drc *DeviceRegColl) RemoveDeviceReg(serial string) error {
 // LockDevice : this can render all the uplinking communication of the device blocked
 // the device on the ground can be working, but it would lose all its communication to the cloud
 func (drc *DeviceRegColl) LockDevice(serial string) error {
-	if serial == "" {
+	isReg, err := drc.IsDeviceRegistered(serial)
+	if err != nil {
+		return ErrQueryFailed(fmt.Errorf("LockDevice: failed database query operation"))
+	}
+	if !isReg {
 		return ErrInvalid(fmt.Errorf("Invalid device serial to lock"))
 	}
 	if err := drc.Update(bson.M{"serial": serial}, bson.M{"$set": bson.M{"lock": true}}); err != nil {
-		return ErrQueryFailed(fmt.Errorf("LockDevice: failed database operation"))
+		return ErrQueryFailed(fmt.Errorf("LockDevice: failed database query operation"))
 	}
 	return nil
 }
 
 // UnLockDevice : this can unlock the device and then again the device is live
 func (drc *DeviceRegColl) UnLockDevice(serial string) error {
-	if serial == "" {
-		return ErrInvalid(fmt.Errorf("Invalid device serial to lock"))
+	isReg, err := drc.IsDeviceRegistered(serial)
+	if err != nil {
+		return ErrQueryFailed(fmt.Errorf("UnLockDevice: failed database query operation"))
+	}
+	if !isReg {
+		return ErrInvalid(fmt.Errorf("Invalid device serial to unlock"))
 	}
 	if err := drc.Update(bson.M{"serial": serial}, bson.M{"$set": bson.M{"lock": false}}); err != nil {
-		return ErrQueryFailed(fmt.Errorf("LockDevice: failed database operation"))
+		return ErrQueryFailed(fmt.Errorf("UnLockDevice: failed database operation"))
 	}
 	return nil
 }
@@ -306,9 +326,6 @@ type BlacklistColl struct {
 
 // Black : will black list the device serial if not already done
 func (blckcoll *BlacklistColl) Black(bl *Blacklist) error {
-	if bl.Serial == "" {
-		return ErrInvalid(fmt.Errorf("Serial %s of the device to blacklist cannot be empty", bl.Serial))
-	}
 	count, _ := blckcoll.Find(bson.M{"serial": bl.Serial}).Count()
 	if count == 0 {
 		// this is when the device is not balcklisted
@@ -322,9 +339,6 @@ func (blckcoll *BlacklistColl) Black(bl *Blacklist) error {
 
 // White : will remove the device from the black list and hence the device can once again re-register itself
 func (blckcoll *BlacklistColl) White(serial string) error {
-	if serial == "" {
-		return ErrInvalid(fmt.Errorf("Serial %s of the device to blacklist cannot be empty", serial))
-	}
 	count, _ := blckcoll.Find(bson.M{"serial": serial}).Count()
 	if count == 1 {
 		// this is when the device is not balcklisted
