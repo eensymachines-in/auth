@@ -13,12 +13,15 @@ import (
 type UserAcc struct {
 	Email  string `json:"email" bson:"email"`
 	Passwd string `json:"passwd" bson:"passwd"`
+	Role   int    `json:"role" bson:"role"`
 }
 
 // UserAccDetails : details of the user account ahead of user account
 type UserAccDetails struct {
 	UserAcc `bson:",inline"`
-	Phone   string `json:"email" bson:"email"`
+	Name    string `json:"name" bson:"name"`
+	Phone   string `json:"phone" bson:"phone"`
+	Loc     string `json:"loc" bson:"loc"`
 }
 
 // SelectQ : generates a select mgo query for the user account
@@ -62,14 +65,14 @@ func (ua *UserAccounts) IsRegistered(email string) bool {
 }
 
 // InsertAccount : new user account
-func (ua *UserAccounts) InsertAccount(u *UserAcc) error {
+func (ua *UserAccounts) InsertAccount(u *UserAccDetails) error {
 	if u == nil || u.Email == "" || !passwdIsOk(u.Passwd) {
 		return ErrInvalid(fmt.Errorf("User account being inserted cannot be empty, or invalid. Check the account credentials and send again"))
 	}
 	if ua.IsRegistered(u.Email) {
 		return ErrDuplicate(fmt.Errorf("User account with email %s already registered", u.Email))
 	}
-	if err := hashPasswd(u); err != nil {
+	if err := hashPasswd(&u.UserAcc); err != nil {
 		return err
 	}
 	if ua.Insert(u) != nil {
