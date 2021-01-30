@@ -1,37 +1,13 @@
-## Welcome to GitHub Pages
 
-You can use the [editor on GitHub](https://github.com/eensymachines-in/auth/edit/master/docs/index.md) to maintain and preview the content for your website in Markdown files.
+### Authentication & Authorization :
+---------
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+Authentication and authorization is used not only by users from the webapp, but also by devices on the ground. Unless the client parties authenticate themselves on the server actions on the client-side aren't sanctioned. Authorization enables distinction between the areas of the application that the client-side has access to.
+This package specifically focusses on auth(entication/urization) for both devices and users.
 
-### Markdown
+While devices register themselves, and then check to see the `locked` status before starting operations on the ground. If the device is found locked the main function of the device aborts all the tasks. Incase the device is `blacklisted` the device will __not__ proceed to self-register and subsequently all the operations following on the ground will abort.
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+New user accounts have to be registered by admins from the webapp. Accounts use regular authentication methods, and authorization levels will determine the specific areas of the API that are allowed /denied for access 
 
-```markdown
-Syntax highlighted code block
-
-# Header 1
-## Header 2
-### Header 3
-
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
-```
-
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/eensymachines-in/auth/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
+### Device authentication :
+----------
