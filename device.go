@@ -174,21 +174,6 @@ func (devreg DeviceReg) Register(url string) (err error) {
 	return
 }
 
-// ErrQueryFailed : when the mongo query fails
-type ErrQueryFailed error
-
-// ErrDuplicate : this is when duplicate insertion
-type ErrDuplicate error
-
-// ErrNotFound : this is when no result is fetched and atleast one was expected
-type ErrNotFound error
-
-// ErrInvalid : this is when one or more fields are invalid and cannot proceed with query
-type ErrInvalid error
-
-// ErrForbid : this is when the action is not allowed
-type ErrForbid error
-
 // DeviceRegColl : derivation of the mgo collection so that we can have extended functions
 type DeviceRegColl struct {
 	*mgo.Collection

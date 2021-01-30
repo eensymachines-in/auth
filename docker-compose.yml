@@ -1,0 +1,23 @@
+version: '3.1'
+
+services:
+    cache:
+        image: redis:6.0
+        restart: always
+        ports:
+            - 6379:6379
+        tty: true
+        stdin_open: true
+        container_name: redis_cache
+        volumes: 
+            - "/data:/data" # this is where redis will store its AOF appendonly file for persistence
+    mongo:
+        image: mongo:4.2-bionic
+        restart: always
+        ports:
+            - 37017:27017
+        tty: true
+        stdin_open: true
+        container_name: test_mongo
+        volumes: 
+            - "/data:/data"
