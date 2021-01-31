@@ -37,6 +37,7 @@ func IsRegistered(url string) (ok bool, err error)
 From the device below, this can be used to check the registration status. This function makes a http call to the cloud to check. Will respond in `bool` and `error` to denote the status of the registration on the cloud.
 
 #### Checking device lock:
+
 ```go
 func IsLocked(url string) (yes bool, err error)
 ```
