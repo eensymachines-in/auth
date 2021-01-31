@@ -3,7 +3,6 @@ package auth
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -32,6 +31,11 @@ func (acc *UserAcc) SelectQ() bson.M {
 // UpdatePassQ : generates a update password query for the user account
 func (acc *UserAcc) UpdatePassQ() bson.M {
 	return bson.M{"$set": bson.M{"passwd": acc.Passwd}}
+}
+
+// UpdateDetailsQ : generates a query that can help update the user account details except the password
+func (det *UserAccDetails) UpdateDetailsQ() bson.M {
+	return bson.M{"$set": bson.M{"name": det.Name, "phone": det.Phone, "loc": det.Loc}}
 }
 
 // UserAccounts : collection of user accounts
@@ -120,11 +124,35 @@ func (ua *UserAccounts) Authenticate(u *UserAcc) (bool, error) {
 	if err := ua.Find(u.SelectQ()).One(dbUser); err != nil {
 		return false, ErrQueryFailed(fmt.Errorf("Failed to authenticate, could not get user from database"))
 	}
-	log.Infof("User from db: %v", dbUser)
-	log.Infof("User from request: %v", u)
 	err := bcrypt.CompareHashAndPassword([]byte(dbUser.Passwd), []byte(u.Passwd))
 	if err != nil {
 		return false, ErrForbid(fmt.Errorf("Failed to authenticate, incorrect password %s", err))
 	}
 	return true, nil
+}
+
+// AccountDetails : given the email id of the account, this can fetch the user account details
+func (ua *UserAccounts) AccountDetails(email string) (*UserAccDetails, error) {
+	if email == "" {
+		return nil, ErrInvalid(fmt.Errorf("Email of the account to be fetched cannot be empty"))
+	}
+	if !ua.IsRegistered(email) {
+		return nil, ErrNotFound(fmt.Errorf("User account with email %s not registered", email))
+	}
+	result := &UserAccDetails{}
+	if err := ua.Find(bson.M{"email": email}).One(result); err != nil {
+		return nil, ErrQueryFailed(fmt.Errorf("Failed to get user %s from the records", email))
+	}
+	return result, nil
+}
+
+// UpdateAccDetails : changes the account details except the password
+func (ua *UserAccounts) UpdateAccDetails(newDetails *UserAccDetails) error {
+	if !ua.IsRegistered(newDetails.Email) {
+		return ErrNotFound(fmt.Errorf("User account with email %s not registered", newDetails.Email))
+	}
+	if err := ua.Update(newDetails.SelectQ(), newDetails.UpdateDetailsQ()); err != nil {
+		return ErrQueryFailed(fmt.Errorf("Failed to update account details %s", err))
+	}
+	return nil
 }
