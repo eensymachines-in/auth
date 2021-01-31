@@ -22,16 +22,21 @@ Registeration of device has the following fields
 - Lock status: this is a dynamic lock status of the device on the cloud
 
 ```
+#### Gathering device registration :
+
 ```go
 func ThisDeviceReg(u string) (*DeviceReg, error) 
 ```
 When run on any device, this shall give you the required static fields read from the device. Lock status is determined and added on by the server. Hence except that one field, all the others are read from the device on the ground. Use this to send the device reg details when registering anew
+
+#### Checking device registration:
 
 ```go
 func IsRegistered(url string) (ok bool, err error)
 ```
 From the device below, this can be used to check the registration status. This function makes a http call to the cloud to check. Will respond in `bool` and `error` to denote the status of the registration on the cloud.
 
+#### Checking device lock:
 ```go
 func IsLocked(url string) (yes bool, err error)
 ```
