@@ -12,7 +12,7 @@ import (
 // UserAcc : signifies the user account
 type UserAcc struct {
 	Email  string `json:"email" bson:"email"`
-	Passwd string `json:"passwd" bson:"passwd"`
+	Passwd string `json:"passwd,omitempty" bson:"passwd"`
 	Role   int    `json:"role" bson:"role"`
 }
 
@@ -34,22 +34,28 @@ func (acc *UserAcc) UpdatePassQ() bson.M {
 	return bson.M{"$set": bson.M{"passwd": acc.Passwd}}
 }
 
+// UpdateDetailsQ : generates a query that can help update the user account details except the password
+func (det *UserAccDetails) UpdateDetailsQ() bson.M {
+	return bson.M{"$set": bson.M{"name": det.Name, "phone": det.Phone, "loc": det.Loc}}
+}
+
 // MarshalJSON : custom Marshal override since some fields in the user account are to be masked
-func (acc *UserAcc) MarshalJSON() ([]byte, error) {
+func (det *UserAccDetails) MarshalJSON() ([]byte, error) {
 	// We wouldn't want the password to be carried as a payload when the acc details are Marshaled
 	out := struct {
 		Email string `json:"email"`
 		Role  int    `json:"role"`
+		Name  string `json:"name"`
+		Phone string `json:"phone"`
+		Loc   string `json:"loc"`
 	}{
-		Email: acc.Email,
-		Role:  acc.Role,
+		Email: det.Email,
+		Role:  det.Role,
+		Name:  det.Name,
+		Phone: det.Name,
+		Loc:   det.Loc,
 	}
 	return json.Marshal(&out)
-}
-
-// UpdateDetailsQ : generates a query that can help update the user account details except the password
-func (det *UserAccDetails) UpdateDetailsQ() bson.M {
-	return bson.M{"$set": bson.M{"name": det.Name, "phone": det.Phone, "loc": det.Loc}}
 }
 
 // UserAccounts : collection of user accounts

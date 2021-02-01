@@ -1,12 +1,26 @@
 package auth
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/mgo.v2"
 )
+
+func TestJSONAccDetails(t *testing.T) {
+	acc := &UserAcc{Email: "kneerunjun@gmail.com", Passwd: "someThickPAss@123"}
+	accDetails := &UserAccDetails{UserAcc: *acc, Loc: "Pune, 411057", Phone: "+91 4343400 545", Name: "Niranjan Awati"}
+	body, _ := json.Marshal(accDetails)
+	t.Log(string(body))
+	// Now trying the unmarshal route too
+	acc = &UserAcc{Email: "kneerunjun@gmail.com"}
+	accDetails = &UserAccDetails{UserAcc: *acc, Loc: "Pune, 411057", Phone: "+91 4343400 545", Name: "Niranjan Awati"}
+	err := json.Unmarshal(body, accDetails)
+	assert.Nil(t, err, "Unexpected error in reading in json account details")
+	t.Log(accDetails)
+}
 
 func TestUserAcc(t *testing.T) {
 	acc := &UserAcc{Email: "kneerunjun@gmail.com", Passwd: "someThickPAss@123"}
