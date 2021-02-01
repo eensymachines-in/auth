@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
@@ -31,6 +32,19 @@ func (acc *UserAcc) SelectQ() bson.M {
 // UpdatePassQ : generates a update password query for the user account
 func (acc *UserAcc) UpdatePassQ() bson.M {
 	return bson.M{"$set": bson.M{"passwd": acc.Passwd}}
+}
+
+// MarshalJSON : custom Marshal override since some fields in the user account are to be masked
+func (acc *UserAcc) MarshalJSON() ([]byte, error) {
+	// We wouldn't want the password to be carried as a payload when the acc details are Marshaled
+	out := struct {
+		Email string `json:"email"`
+		Role  int    `json:"role"`
+	}{
+		Email: acc.Email,
+		Role:  acc.Role,
+	}
+	return json.Marshal(&out)
 }
 
 // UpdateDetailsQ : generates a query that can help update the user account details except the password
