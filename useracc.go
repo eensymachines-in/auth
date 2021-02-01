@@ -52,7 +52,7 @@ func (det *UserAccDetails) MarshalJSON() ([]byte, error) {
 		Email: det.Email,
 		Role:  det.Role,
 		Name:  det.Name,
-		Phone: det.Name,
+		Phone: det.Phone,
 		Loc:   det.Loc,
 	}
 	return json.Marshal(&out)
