@@ -99,7 +99,7 @@ func (ua *UserAccounts) IsRegistered(email string) bool {
 
 // InsertAccount : new user account
 func (ua *UserAccounts) InsertAccount(u *UserAccDetails) error {
-	if u == nil || emailIsOk(u.Email) || !passwdIsOk(u.Passwd) {
+	if u == nil || !emailIsOk(u.Email) || !passwdIsOk(u.Passwd) {
 		return ErrInvalid(fmt.Errorf("User account being inserted cannot be empty, or invalid. Check the account credentials and send again"))
 	}
 	if ua.IsRegistered(u.Email) {
