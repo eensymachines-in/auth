@@ -9,6 +9,37 @@ import (
 	"gopkg.in/mgo.v2"
 )
 
+func TestEmailPassChecks(t *testing.T) {
+	assert.True(t, emailIsOk("john.smith@gmail.com"), "Unexpected error when checking emails")
+	assert.True(t, emailIsOk("nirannjan_awati@gmail.com"), "Unexpected error when checking emails")
+	assert.True(t, emailIsOk("niranjan.awati@gmail.com"), "Unexpected error when checking emails")
+	assert.True(t, emailIsOk("niranjan-awati@gmail.com"), "Unexpected error when checking emails")
+	assert.True(t, emailIsOk("niranjan_awati@gmail1.com"), "Expected false when invalid email")
+
+	assert.False(t, emailIsOk("niranjan#awati@gmail.com"), "Expected false when invalid email")
+	assert.False(t, emailIsOk("niranjan?awati@gmail.com"), "Expected false when invalid email")
+	assert.False(t, emailIsOk("niranjan_awati@.com"), "Expected false when invalid email")
+	assert.False(t, emailIsOk("niranjan_awati@gmail."), "Expected false when invalid email")
+	assert.False(t, emailIsOk("niranjan_awati"), "Expected false when invalid email")
+	assert.False(t, emailIsOk("niranjan_awati@"), "Expected false when invalid email")
+	assert.False(t, emailIsOk("niranjan_awati@gmail"), "Expected false when invalid email")
+	assert.False(t, emailIsOk("niranjan_awati@gmailcom."), "Expected false when invalid email")
+	assert.False(t, emailIsOk("niranjan_awati@gmail..com"), "Expected false when invalid email")
+	assert.False(t, emailIsOk("niranjan_awati@gmail.com@"), "Expected false when invalid email")
+	assert.False(t, emailIsOk("@gmail.com"), "Expected false when invalid email")
+
+	assert.True(t, passwdIsOk("niranjan@123"), "Unexpected error when checking password")
+	assert.True(t, passwdIsOk("niranjan#123"), "Unexpected error when checking password")
+	assert.True(t, passwdIsOk("niranjan%123"), "Unexpected error when checking password")
+	assert.True(t, passwdIsOk("niranjan&123"), "Unexpected error when checking password")
+	assert.True(t, passwdIsOk("niranjan?123"), "Unexpected error when checking password")
+	assert.True(t, passwdIsOk("niran_jan?123"), "Unexpected error when checking password")
+
+	assert.False(t, passwdIsOk("niru"), "Unexpected error when checking password")
+	assert.False(t, passwdIsOk("niranjanawatidasdsadsadsadasdsa"), "Unexpected error when checking password")
+
+}
+
 func TestJSONAccDetails(t *testing.T) {
 	acc := &UserAcc{Email: "kneerunjun@gmail.com", Passwd: "someThickPAss@123"}
 	accDetails := &UserAccDetails{UserAcc: *acc, Loc: "Pune, 411057", Phone: "+91 4343400 545", Name: "Niranjan Awati"}

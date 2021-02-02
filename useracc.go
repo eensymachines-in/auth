@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/mgo.v2"
@@ -73,10 +74,18 @@ func hashPasswd(u *UserAcc) error {
 	return nil
 }
 
+// passwdIsOk : matches a pattern for the password
 func passwdIsOk(p string) bool {
 	// fit all your regex magic here later..
 	// for now just an empty strut to in get a hard coded value
-	return true
+	matched, _ := regexp.Match(`^[[:alnum:]_!@#%&?-]{8,16}$`, []byte(p))
+	return matched
+}
+
+// emailIsOk : matches a pattern for the email
+func emailIsOk(e string) bool {
+	matched, _ := regexp.Match(`^[a-zA-Z0-9_.-]{1,}@[[:alnum:]]{1,}[.]{1}[a-z]{1,}$`, []byte(e))
+	return matched
 }
 
 // IsRegistered : checks to see if user account is registered
@@ -90,7 +99,7 @@ func (ua *UserAccounts) IsRegistered(email string) bool {
 
 // InsertAccount : new user account
 func (ua *UserAccounts) InsertAccount(u *UserAccDetails) error {
-	if u == nil || u.Email == "" || !passwdIsOk(u.Passwd) {
+	if u == nil || emailIsOk(u.Email) || !passwdIsOk(u.Passwd) {
 		return ErrInvalid(fmt.Errorf("User account being inserted cannot be empty, or invalid. Check the account credentials and send again"))
 	}
 	if ua.IsRegistered(u.Email) {
