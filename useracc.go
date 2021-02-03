@@ -21,7 +21,7 @@ import (
 type UserAcc struct {
 	Email  string `json:"email" bson:"email"`
 	Passwd string `json:"passwd,omitempty" bson:"passwd"`
-	Role   int    `json:"role" bson:"role"`
+	Role   int    `json:"role,omitempty" bson:"role"`
 }
 
 // UserAccDetails : details of the user account ahead of user account
