@@ -1,5 +1,9 @@
 package auth
 
+/*UserAccount management functions here
+This helps to keep the shape - CRUD the user account
+Also helps to maintain the user account details*/
+
 import (
 	"encoding/json"
 	"fmt"
@@ -10,6 +14,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
+
+// ++++++++++++++++++++++++++++++ custom types +++++++++++++++++++++++++++++++++++
 
 // UserAcc : signifies the user account
 type UserAcc struct {
@@ -26,6 +32,13 @@ type UserAccDetails struct {
 	Loc     string `json:"loc" bson:"loc"`
 }
 
+// UserAccounts : collection of user accounts
+type UserAccounts struct {
+	*mgo.Collection
+}
+
+// ++++++++++++++++++++++++++++++ UserAco query functions +++++++++++++++++++++++++++++++++++
+
 // SelectQ : generates a select mgo query for the user account
 func (acc *UserAcc) SelectQ() bson.M {
 	return bson.M{"email": acc.Email}
@@ -40,6 +53,8 @@ func (acc *UserAcc) UpdatePassQ() bson.M {
 func (det *UserAccDetails) UpdateDetailsQ() bson.M {
 	return bson.M{"$set": bson.M{"name": det.Name, "phone": det.Phone, "loc": det.Loc}}
 }
+
+// ++++++++++++++++++++++++++++++ UserAccDetails procedures +++++++++++++++++++++++++++++++++++
 
 // MarshalJSON : custom Marshal override since some fields in the user account are to be masked
 func (det *UserAccDetails) MarshalJSON() ([]byte, error) {
@@ -60,11 +75,7 @@ func (det *UserAccDetails) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&out)
 }
 
-// UserAccounts : collection of user accounts
-type UserAccounts struct {
-	*mgo.Collection
-}
-
+// ++++++++++++++++++++++++++++++ Helper functions +++++++++++++++++++++++++++++++++++
 /*hashPasswd : this will take the user account and replace the passwd with a salted hash*/
 func hashPasswd(u *UserAcc) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(u.Passwd), bcrypt.DefaultCost)
@@ -88,6 +99,8 @@ func emailIsOk(e string) bool {
 	matched, _ := regexp.Match(`^[a-zA-Z0-9_.-]{1,}@[[:alnum:]]{1,}[.]{1}[a-z]{1,}$`, []byte(e))
 	return matched
 }
+
+// ++++++++++++++++++++++++++++++ UserAccounts procedures +++++++++++++++++++++++++++++++++++
 
 // IsRegistered : checks to see if user account is registered
 func (ua *UserAccounts) IsRegistered(email string) bool {
