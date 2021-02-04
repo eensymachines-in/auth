@@ -7,6 +7,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// ErrAuth : specific error for auth module
+type ErrAuth interface {
+	error
+	HTTPStatusCode() int
+}
 type errAuth struct {
 	Msg string // error message that gets logged
 	Ctx string // context in which this error occured, this is generally struct.proc
