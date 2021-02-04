@@ -6,7 +6,6 @@ Also helps to maintain the user account details*/
 
 import (
 	"encoding/json"
-	"fmt"
 	"regexp"
 
 	log "github.com/sirupsen/logrus"
@@ -80,7 +79,7 @@ func (det *UserAccDetails) MarshalJSON() ([]byte, error) {
 func hashPasswd(u *UserAcc) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(u.Passwd), bcrypt.DefaultCost)
 	if err != nil {
-		return ErrInvalid(fmt.Errorf("The password for the user account does not match the encryption requirements"))
+		return NewErr(&ErrInvalid{}, "Failed encrypt password", "hashPasswd", "UserAcc")
 	}
 	u.Passwd = string(hash)
 	return nil
@@ -115,18 +114,16 @@ func (ua *UserAccounts) IsRegistered(email string) bool {
 func (ua *UserAccounts) InsertAccount(u *UserAccDetails) error {
 	log.Debugf("Now registering a new user account")
 	if u == nil || !emailIsOk(u.Email) || !passwdIsOk(u.Passwd) {
-		return ErrInvalid(fmt.Errorf("Invalid account/ fields. Kindly check and send again"))
+		return NewErr(&ErrInvalid{}, "Invalid AccDetails fields", "InsertAccount", "UserAccounts")
 	}
 	if ua.IsRegistered(u.Email) {
-		return ErrDuplicate(fmt.Errorf("User account with email %s already registered", u.Email))
+		return NewErr(&ErrDuplicate{}, "User account already registered", "InsertAccount", "UserAccounts")
 	}
 	if err := hashPasswd(&u.UserAcc); err != nil {
-		log.Errorf("Password hash failed: %s", err)
-		return ErrInvalid(fmt.Errorf("Failed to encrypt password, please try again with another one"))
+		return err
 	}
 	if err := ua.Insert(u); err != nil {
-		log.Errorf("Failed query to insert user %s", err)
-		return ErrQueryFailed(fmt.Errorf("Failed operation to register new user account"))
+		return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "InsertAccount", "UserAccounts")
 	}
 	return nil
 }
@@ -136,8 +133,7 @@ func (ua *UserAccounts) RemoveAccount(email string) error {
 	log.Debugf("RemoveAccount: Now removing the user account %s", email)
 	if email != "" && ua.IsRegistered(email) {
 		if err := ua.Remove(bson.M{"email": email}); err != nil {
-			log.Errorf("RemoveAccount: Failed query to remove account %s", err)
-			return ErrQueryFailed(fmt.Errorf("Failed to remove user account %s", err))
+			return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "RemoveAccount", "UserAccounts")
 		}
 	}
 	return nil
@@ -151,20 +147,16 @@ func (ua *UserAccounts) RemoveAccount(email string) error {
 func (ua *UserAccounts) UpdateAccPasswd(newUser *UserAcc) error {
 	log.Debugf("UpdateAccPasswd: Now updating password for user account %s", newUser.Email)
 	if !ua.IsRegistered(newUser.Email) {
-		log.Errorf("UpdateAccPasswd: Unregistered user account %s", newUser.Email)
-		return ErrNotFound(fmt.Errorf("User account with email %s not registered", newUser.Email))
+		return NewErr(&ErrNotFound{}, "User account not found registered", "UpdateAccPasswd", "UserAccounts")
 	}
 	if !passwdIsOk(newUser.Passwd) {
-		log.Errorf("UpdateAccPasswd: Invalid password for the account")
-		return ErrInvalid(fmt.Errorf("Password is empty/invalid. Password can be 8-16 characters alphanumeric"))
+		return NewErr(&ErrInvalid{}, "Password is alphanumeric or _!@#%&?- 8-16 characters, ", "UpdateAccPasswd", "UserAccounts")
 	}
 	if err := hashPasswd(newUser); err != nil {
-		log.Errorf("Password hash failed: %s", err)
-		return ErrInvalid(fmt.Errorf("Failed to encrypt password, please try again with another one"))
+		return err
 	}
 	if err := ua.Update(newUser.SelectQ(), newUser.UpdatePassQ()); err != nil {
-		log.Errorf("UpdateAccPasswd: Failed query to update password %s", err)
-		return ErrQueryFailed(fmt.Errorf(" Failed to update account password, one or more server operations have failed"))
+		return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "UpdateAccPasswd", "UserAccounts")
 	}
 	return nil
 }
@@ -173,22 +165,18 @@ func (ua *UserAccounts) UpdateAccPasswd(newUser *UserAcc) error {
 func (ua *UserAccounts) Authenticate(u *UserAcc) (bool, error) {
 	log.Debugf("Authenticate: Now authenticating the user account %s", u.Email)
 	if u == nil || u.Email == "" || u.Passwd == "" {
-		log.Errorf("User account to authenticate is nil or has invalid credentials")
-		return false, ErrInvalid(fmt.Errorf("Failed to authenticate, invalid user credentials"))
+		return false, NewErr(&ErrInvalid{}, "Invalid user account credentials to authenticate", "Authenticate", "UserAccounts")
 	}
 	if !ua.IsRegistered(u.Email) {
-		log.Errorf("Authenticate: Unregistered user account %s, cannot be authenticated", u.Email)
-		return false, ErrNotFound(fmt.Errorf("User account with email %s not registered", u.Email))
+		return false, NewErr(&ErrNotFound{}, "User account not found registered", "Authenticate", "UserAccounts")
 	}
 	dbUser := &UserAcc{}
 	if err := ua.Find(u.SelectQ()).One(dbUser); err != nil {
-		log.Errorf("Authenticate: Failed to get account %s details from database %s", u.Email, err)
-		return false, ErrQueryFailed(fmt.Errorf("Failed to authenticate, could not get user from database"))
+		return false, NewErr(&ErrQueryFailed{}, "Failed query on mongo", "Authenticate", "UserAccounts")
 	}
 	err := bcrypt.CompareHashAndPassword([]byte(dbUser.Passwd), []byte(u.Passwd))
 	if err != nil {
-		log.Errorf("Authenticate: bcrypt hash compare failed %s", err)
-		return false, ErrUnauth(fmt.Errorf("Failed to authenticate, incorrect password"))
+		return false, NewErr(&ErrUnauth{}, "Mismatching password for user account", "Authenticate", "UserAccounts")
 	}
 	return true, nil
 }
@@ -200,17 +188,15 @@ func (ua *UserAccounts) Authenticate(u *UserAcc) (bool, error) {
 func (ua *UserAccounts) AccountDetails(email string) (*UserAccDetails, error) {
 	log.Debugf("AccountDetails:Now getting acocunt details for %s", email)
 	if email == "" {
-		log.Errorf("AccountDetails:Empty email query for getting account details")
-		return nil, ErrInvalid(fmt.Errorf("Invalid email for the account"))
+		return nil, NewErr(&ErrInvalid{}, "Invalid user email ", "AccountDetails", "UserAccounts")
 	}
 	if !ua.IsRegistered(email) {
-		log.Errorf("AccountDetails:No account registered with email id %s", email)
-		return nil, ErrNotFound(fmt.Errorf("User account with email %s not registered", email))
+		return nil, NewErr(&ErrNotFound{}, "User account not found registered", "AccountDetails", "UserAccounts")
 	}
 	result := &UserAccDetails{}
 	if err := ua.Find(bson.M{"email": email}).One(result); err != nil {
 		log.Errorf("AccountDetails: Failed query to get account details for %s: %s", email, err)
-		return nil, ErrQueryFailed(fmt.Errorf("Failed server opearation to get account details for %s", email))
+		return nil, NewErr(&ErrQueryFailed{}, "Failed query on mongo", "AccountDetails", "UserAccounts")
 	}
 	return result, nil
 }
@@ -221,12 +207,10 @@ func (ua *UserAccounts) AccountDetails(email string) (*UserAccDetails, error) {
 func (ua *UserAccounts) UpdateAccDetails(newDetails *UserAccDetails) error {
 	log.Debugf("Now updating account details for %s", newDetails.Email)
 	if !ua.IsRegistered(newDetails.Email) {
-		log.Errorf("Unregistered accounts cannot be updated of details. %s", newDetails.Email)
-		return ErrNotFound(fmt.Errorf("User account with email %s not registered", newDetails.Email))
+		return NewErr(&ErrNotFound{}, "User account not found registered", "UpdateAccDetails", "UserAccounts")
 	}
 	if err := ua.Update(newDetails.SelectQ(), newDetails.UpdateDetailsQ()); err != nil {
-		log.Errorf("Failed query to update account details %s", err)
-		return ErrQueryFailed(fmt.Errorf("Failed server operation to update account details %s", newDetails.Email))
+		return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "UpdateAccDetails", "UserAccounts")
 	}
 	return nil
 }

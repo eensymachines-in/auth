@@ -1,28 +1,34 @@
 package auth
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v7"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
-	authExp = time.Duration(10) * time.Second
-	refrExp = time.Duration(60) * time.Second
+	authExp        = time.Duration(10) * time.Second
+	refrExp        = time.Duration(60) * time.Second
+	failCacheSet   = "Failed to set cache record"
+	failCacheGet   = "Failed to get cache record"
+	failTokExpired = "Token has expired, refresh or login again"
 )
 
 // UserLogin : this will take 2 tokens and push them into the cache
 // auth UUID > refr UUID
 // refr UUID > user email
 func UserLogin(auth, refr *JWTok, client *redis.Client) error {
+	// all this involves is the setting of 2 tokens in a linked list format
 	ok, err := client.SetNX(auth.UUID, refr.UUID, authExp).Result()
 	if !ok || err != nil {
-		return ErrCache(fmt.Errorf("Failed to set cache record %s", err))
+		log.Errorf("UserLogin/fail: %s", err)
+		return &ErrCache{&errAuth{Msg: failCacheSet}}
 	}
 	ok, err = client.SetNX(refr.UUID, auth.User, refrExp).Result()
 	if !ok || err != nil {
-		return ErrCache(fmt.Errorf("Failed to set cache record %s", err))
+		log.Errorf("UserLogin/fail: %s", err)
+		return &ErrCache{&errAuth{Msg: failCacheSet}}
 	}
 	return nil
 }
@@ -31,7 +37,8 @@ func UserLogin(auth, refr *JWTok, client *redis.Client) error {
 func UserLoginRefresh(refr, auth *JWTok, client *redis.Client) error {
 	ok, err := client.SetNX(auth.UUID, refr.UUID, authExp).Result()
 	if !ok || err != nil {
-		return ErrCache(fmt.Errorf("Failed to set cache record %s", err))
+		log.Errorf("UserLoginRefresh/fail: %s", err)
+		return &ErrCache{&errAuth{Msg: failCacheSet}}
 	}
 	return nil
 }
@@ -48,9 +55,9 @@ func IsTokenExpired(tokid string, client *redis.Client) (string, error) {
 	val, err := client.Get(tokid).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return "", ErrTokExpired(fmt.Errorf("Authentication token has expired"))
+			return "", &ErrTokExpired{&errAuth{Msg: failTokExpired}}
 		}
-		return "", ErrCache(fmt.Errorf("Failed to get cache record %s", err))
+		return "", &ErrCache{&errAuth{Msg: failCacheGet}}
 	}
 	return val, nil // gets the value for the token id as the key
 }

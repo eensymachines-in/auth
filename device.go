@@ -12,6 +12,11 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+const (
+	failedToGetDevice = "Failed to get device by serial/user %s"
+	invalidDevDetails = "Device details are invalid, kindly check"
+)
+
 // DeviceReg : data model of the device registration on the device
 // the lock status is not included. Data model on device is different from the data model on the cloud
 type DeviceReg struct {
@@ -66,7 +71,7 @@ func ThisDeviceReg(u string) (*DeviceReg, error) {
 }
 
 // getHTTP : generic http request with result reading function that is customizable
-func getHTTP(url string, readresult func(body []byte) error) error {
+func getHTTP(url string, readDevStatus func(s *DeviceStatus) error) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		return fmt.Errorf("getHttp: Failed to request device details @ %s, %s", url, err)
@@ -82,22 +87,21 @@ func getHTTP(url string, readresult func(body []byte) error) error {
 		return fmt.Errorf("getHttp: failed, Unknown/invalid response from server")
 	}
 	defer resp.Body.Close()
+	status := &DeviceStatus{}
+	err = json.Unmarshal(body, status)
+	if err != nil {
+		return NewErr(&ErrInvalid{}, "Failed to read DeviceStatus{} from JSON", "getHTTP", "DeviceStatus")
+	}
 	// below the body is read in a specific way that each of the function wants
 	// implementation to this shall be customized for each of the function
-	return readresult(body)
+	return readDevStatus(status)
 }
 
 // IsRegistered : takes a url to register the device, and then check to see if we get any active registration
 // Pl note this does not check if the device is locked / blacklisted
 func IsRegistered(url string) (ok bool, err error) {
-	err = getHTTP(url, func(body []byte) error {
-		status := DeviceStatus{}
-		err = json.Unmarshal(body, &status)
-		if err != nil {
-			ok = false
-			return fmt.Errorf("IsRegistered: failed to read device status in the response payload %s", err)
-		}
-		if (DeviceStatus{}) == status {
+	err = getHTTP(url, func(status *DeviceStatus) error {
+		if (DeviceStatus{}) == *status {
 			ok = false
 			return nil
 		}
@@ -110,14 +114,8 @@ func IsRegistered(url string) (ok bool, err error) {
 // IsLocked : finds if the device is locked, can is recommended to keep it offline
 // in this state the device can no longer have cloud communication
 func IsLocked(url string) (yes bool, err error) {
-	err = getHTTP(url, func(body []byte) error {
-		status := DeviceStatus{}
-		err = json.Unmarshal(body, &status)
-		if err != nil {
-			yes = false
-			return fmt.Errorf("IsRegistered: failed to read device status in the response payload %s", err)
-		}
-		if (DeviceStatus{}) == status {
+	err = getHTTP(url, func(status *DeviceStatus) error {
+		if (DeviceStatus{}) == *status {
 			// If it aint registered then cannot be locked
 			yes = false
 			return nil
@@ -131,14 +129,8 @@ func IsLocked(url string) (yes bool, err error) {
 // IsOwnedBy : tries to verify if the owner of the device is matching
 // this can be used in the login process
 func IsOwnedBy(url string, user string) (yes bool, err error) {
-	err = getHTTP(url, func(body []byte) error {
-		status := DeviceStatus{}
-		err = json.Unmarshal(body, &status)
-		if err != nil {
-			yes = false
-			return fmt.Errorf("IsRegistered: failed to read device status in the response payload %s", err)
-		}
-		if (DeviceStatus{}) == status {
+	err = getHTTP(url, func(status *DeviceStatus) error {
+		if (DeviceStatus{}) == *status {
 			yes = false
 			return nil
 		}
@@ -188,7 +180,7 @@ func (drc *DeviceRegColl) FindUserDevices(u string) ([]DeviceStatus, error) {
 	result := []DeviceStatus{}
 	q := bson.M{"user": u}
 	if err := drc.Find(q).All(&result); err != nil {
-		return nil, ErrQueryFailed(fmt.Errorf("FindUserDevices: failed query %s", err))
+		return nil, NewErr(&ErrQueryFailed{}, "Failed mongo query", "FindUserDevices", "DeviceRegColl")
 	}
 	return result, nil
 }
@@ -204,7 +196,7 @@ func (drc *DeviceRegColl) DeviceOfSerial(s string) (*DeviceStatus, error) {
 			// .One() results in this error and in that case we would want nil status
 			return &DeviceStatus{}, nil
 		}
-		return nil, ErrQueryFailed(fmt.Errorf("FindUserDevices: failed query %s", err))
+		return nil, NewErr(&ErrQueryFailed{}, "Failed mongo query", "DeviceOfSerial", "DeviceRegColl")
 	}
 	return &result, nil
 }
@@ -213,7 +205,7 @@ func (drc *DeviceRegColl) DeviceOfSerial(s string) (*DeviceStatus, error) {
 func (drc *DeviceRegColl) IsDeviceRegistered(serial string) (bool, error) {
 	c, err := drc.Find(bson.M{"serial": serial}).Count()
 	if err != nil {
-		return false, ErrQueryFailed(fmt.Errorf("Getting device by serial: failed query %s", err)) // failed query
+		return false, NewErr(&ErrQueryFailed{}, "Failed mongo query", "IsDeviceRegistered", "DeviceRegColl")
 	}
 	if c > 0 {
 		return true, nil
@@ -226,14 +218,14 @@ func (drc *DeviceRegColl) IsDeviceRegistered(serial string) (bool, error) {
 // please provide the collection where black listed serials are stored
 func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceReg, blckColl *mgo.Collection) error {
 	if dr.Serial == "" || dr.User == "" {
-		return ErrInvalid(fmt.Errorf("Invalid device registration details, User and serial fields cannot be empty"))
+		return NewErr(&ErrInvalid{}, "Invalid device details", "InsertDeviceReg", "DeviceRegColl")
 	}
 	// Checking for black listing
 	if blckColl != nil {
 		// blckColl collection can be nil, in which case the registration will disregard blacklisting
 		if blckColl.Find(bson.M{"serial": dr.Serial}).One(&bson.M{}) == nil {
 			// this indicates the device was blacklisted
-			return ErrUnauth(fmt.Errorf("Device cannot be registered if its blacklisted"))
+			return NewErr(&ErrUnauth{}, "Device blacklisted", "InsertDeviceReg", "DeviceRegColl")
 		} // here the device wasnt blacklisted
 	}
 	// Now to find out if the device has been already registered
@@ -241,13 +233,13 @@ func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceReg, blckColl *mgo.Collectio
 	duplicate := DeviceStatus{}
 	if err := drc.Find(q).One(&duplicate); err == nil {
 		// this though will not flagged as an error on the api side
-		return ErrDuplicate(fmt.Errorf("Device with the same serial is already registered %s", dr.Serial))
+		return NewErr(&ErrUnauth{}, "Device already registered", "InsertDeviceReg", "DeviceRegColl")
 	}
 	// no checks for the user's existence, that is for the API to check, here we register the device even if the user is not reg
 	// Before inserting a new devreg, it'd converted to a status with lock status and then inserted
 	ds := &DeviceStatus{DeviceReg: *dr, Lock: false}
 	if err := drc.Insert(ds); err != nil {
-		return ErrQueryFailed(fmt.Errorf("InsertDeviceReg: failed insertion query %s", err))
+		return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "InsertDeviceReg", "DeviceRegColl")
 	}
 	return nil
 }
@@ -256,11 +248,11 @@ func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceReg, blckColl *mgo.Collectio
 // this is not recoverable, and there is no backup to this
 func (drc *DeviceRegColl) RemoveDeviceReg(serial string) error {
 	if serial == "" {
-		return ErrInvalid(fmt.Errorf("Invalid device serial to remove"))
+		return NewErr(&ErrInvalid{}, "Invalid device details", "RemoveDeviceReg", "DeviceRegColl")
 	}
 	q := bson.M{"serial": serial}
 	if err := drc.Remove(q); err != nil {
-		return ErrQueryFailed(fmt.Errorf("RemoveDeviceReg: failed database operation"))
+		return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "RemoveDeviceReg", "DeviceRegColl")
 	}
 	return nil
 }
@@ -270,13 +262,13 @@ func (drc *DeviceRegColl) RemoveDeviceReg(serial string) error {
 func (drc *DeviceRegColl) LockDevice(serial string) error {
 	isReg, err := drc.IsDeviceRegistered(serial)
 	if err != nil {
-		return ErrQueryFailed(fmt.Errorf("LockDevice: failed database query operation"))
+		return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "LockDevice", "DeviceRegColl")
 	}
 	if !isReg {
-		return ErrInvalid(fmt.Errorf("Invalid device serial to lock"))
+		return NewErr(&ErrInvalid{}, "Device not registered", "LockDevice", "DeviceRegColl")
 	}
 	if err := drc.Update(bson.M{"serial": serial}, bson.M{"$set": bson.M{"lock": true}}); err != nil {
-		return ErrQueryFailed(fmt.Errorf("LockDevice: failed database query operation"))
+		return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "LockDevice", "DeviceRegColl")
 	}
 	return nil
 }
@@ -285,13 +277,13 @@ func (drc *DeviceRegColl) LockDevice(serial string) error {
 func (drc *DeviceRegColl) UnLockDevice(serial string) error {
 	isReg, err := drc.IsDeviceRegistered(serial)
 	if err != nil {
-		return ErrQueryFailed(fmt.Errorf("UnLockDevice: failed database query operation"))
+		return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "UnLockDevice", "DeviceRegColl")
 	}
 	if !isReg {
-		return ErrInvalid(fmt.Errorf("Invalid device serial to unlock"))
+		return NewErr(&ErrInvalid{}, "Device not registered", "LockDevice", "DeviceRegColl")
 	}
 	if err := drc.Update(bson.M{"serial": serial}, bson.M{"$set": bson.M{"lock": false}}); err != nil {
-		return ErrQueryFailed(fmt.Errorf("UnLockDevice: failed database operation"))
+		return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "UnLockDevice", "DeviceRegColl")
 	}
 	return nil
 }
@@ -316,7 +308,7 @@ func (blckcoll *BlacklistColl) Black(bl *Blacklist) error {
 		// this is when the device is not balcklisted
 		// so we go ahead to blacklist the device
 		if blckcoll.Insert(bl) != nil {
-			return ErrQueryFailed(fmt.Errorf("Failed to insert new blacklisting"))
+			return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "Black", "BlacklistColl")
 		}
 	}
 	return nil // incase the device is already listed we cannot blacklist again
@@ -329,7 +321,7 @@ func (blckcoll *BlacklistColl) White(serial string) error {
 		// this is when the device is not balcklisted
 		// so we go ahead to blacklist the device
 		if blckcoll.Remove(bson.M{"serial": serial}) != nil {
-			return ErrQueryFailed(fmt.Errorf("Failed to insert new blacklisting"))
+			return NewErr(&ErrQueryFailed{}, "Failed query on mongo", "White", "BlacklistColl")
 		}
 	}
 	return nil // incase the device is already listed we cannot blacklist again
