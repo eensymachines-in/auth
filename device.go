@@ -233,7 +233,7 @@ func (drc *DeviceRegColl) InsertDeviceReg(dr *DeviceReg, blckColl *mgo.Collectio
 		// blckColl collection can be nil, in which case the registration will disregard blacklisting
 		if blckColl.Find(bson.M{"serial": dr.Serial}).One(&bson.M{}) == nil {
 			// this indicates the device was blacklisted
-			return ErrForbid(fmt.Errorf("Device cannot be registered if its blacklisted"))
+			return ErrUnauth(fmt.Errorf("Device cannot be registered if its blacklisted"))
 		} // here the device wasnt blacklisted
 	}
 	// Now to find out if the device has been already registered
