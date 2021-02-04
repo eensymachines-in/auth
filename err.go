@@ -12,8 +12,8 @@ type ErrNotFound error
 // ErrInvalid : this is when one or more fields are invalid and cannot proceed with query
 type ErrInvalid error
 
-// ErrForbid : this is when the action is not allowed
-type ErrForbid error
+// ErrUnauth : this is when the action is not allowed
+type ErrUnauth error
 
 // ErrCache : anytime we have a problem setting or getting from cache
 type ErrCache error

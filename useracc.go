@@ -188,7 +188,7 @@ func (ua *UserAccounts) Authenticate(u *UserAcc) (bool, error) {
 	err := bcrypt.CompareHashAndPassword([]byte(dbUser.Passwd), []byte(u.Passwd))
 	if err != nil {
 		log.Errorf("Authenticate: bcrypt hash compare failed %s", err)
-		return false, ErrForbid(fmt.Errorf("Failed to authenticate, incorrect password %s", err))
+		return false, ErrForbid(fmt.Errorf("Failed to authenticate, incorrect password"))
 	}
 	return true, nil
 }
