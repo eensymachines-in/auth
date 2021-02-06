@@ -3,8 +3,8 @@ package auth
 import (
 	"time"
 
+	ex "github.com/eensymachines-in/errx"
 	"github.com/go-redis/redis/v7"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -22,13 +22,11 @@ func UserLogin(auth, refr *JWTok, client *redis.Client) error {
 	// all this involves is the setting of 2 tokens in a linked list format
 	ok, err := client.SetNX(auth.UUID, refr.UUID, authExp).Result()
 	if !ok || err != nil {
-		log.Errorf("UserLogin/fail: %s", err)
-		return &ErrCache{&errAuth{Msg: failCacheSet}}
+		return ex.NewErr(ex.ErrCacheQuery{}, err, "Failed user login, server gateway has encountered an error", "UserLogin/client.SetNX")
 	}
 	ok, err = client.SetNX(refr.UUID, auth.User, refrExp).Result()
 	if !ok || err != nil {
-		log.Errorf("UserLogin/fail: %s", err)
-		return &ErrCache{&errAuth{Msg: failCacheSet}}
+		return ex.NewErr(ex.ErrCacheQuery{}, err, "Failed user login, server gateway has encountered an error", "UserLogin/client.SetNX")
 	}
 	return nil
 }
@@ -37,8 +35,7 @@ func UserLogin(auth, refr *JWTok, client *redis.Client) error {
 func UserLoginRefresh(refr, auth *JWTok, client *redis.Client) error {
 	ok, err := client.SetNX(auth.UUID, refr.UUID, authExp).Result()
 	if !ok || err != nil {
-		log.Errorf("UserLoginRefresh/fail: %s", err)
-		return &ErrCache{&errAuth{Msg: failCacheSet}}
+		return ex.NewErr(ex.ErrCacheQuery{}, err, "Failed user login, server gateway has encountered an error", "UserLoginRefresh/client.SetNX")
 	}
 	return nil
 }
@@ -55,9 +52,9 @@ func IsTokenExpired(tokid string, client *redis.Client) (string, error) {
 	val, err := client.Get(tokid).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return "", &ErrTokExpired{&errAuth{Msg: failTokExpired}}
+			return "", ex.NewErr(ex.ErrTokenExpired{}, err, "Expired authentication, one or more of your auth tokens has expired", "IsTokenExpired/client.Get")
 		}
-		return "", &ErrCache{&errAuth{Msg: failCacheGet}}
+		return "", ex.NewErr(ex.ErrCacheQuery{}, err, "Failed to get token details, server gateway failed", "IsTokenExpired")
 	}
 	return val, nil // gets the value for the token id as the key
 }
@@ -110,7 +107,7 @@ func TokenStatus(authid, refrid, user string, client *redis.Client) (*TokenState
 	state := &TokenState{}
 	_, err := IsTokenExpired(authid, client)
 	if err != nil {
-		if _, ok := err.(ErrTokExpired); ok {
+		if _, ok := err.(ex.ErrTokenExpired); ok {
 			state.AuthExpired()
 		} else {
 			// this is when the cache gateway is broken
@@ -119,7 +116,7 @@ func TokenStatus(authid, refrid, user string, client *redis.Client) (*TokenState
 	}
 	userid, err := IsTokenExpired(refrid, client)
 	if err != nil {
-		if _, ok := err.(ErrTokExpired); ok {
+		if _, ok := err.(ex.ErrTokenExpired); ok {
 			// if the refresh token has expired as well, there isn't any point checking for user mismatches
 			state.LoginExpired()
 			return state, nil

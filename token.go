@@ -10,10 +10,10 @@ This deals with basic token operations
 */
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	ex "github.com/eensymachines-in/errx"
 	"github.com/google/uuid"
 )
 
@@ -47,7 +47,7 @@ func (jt *JWTok) ToString(secret string) (TokenStr, error) {
 	// Sign and get the complete encoded token as a string using the secret
 	str, err := jt.Token.SignedString([]byte(secret))
 	if err != nil {
-		return TokenStr(""), fmt.Errorf("Failed to get token string %s", err)
+		return TokenStr(""), ex.NewErr(ex.ErrInvalid{}, err, "Failed to get authentication token", "JWTok.ToString()")
 	}
 	return TokenStr(str), nil
 }
@@ -64,14 +64,15 @@ func (ts TokenStr) Parse(secret string) (*JWTok, error) {
 	tok, err := jwt.Parse(string(ts), func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			// return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, ex.NewErr(ex.ErrInvalid{}, nil, "Failed to read authorization, please contact an admin", "TokenStr.Parse/token.Method.()")
 		}
 		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
 		return []byte(secret), nil
 	})
 	if err != nil {
 		// token has expired , and this can then send back the relevant error
-		return nil, ErrExpiredTok(fmt.Errorf("The token is an expired token. Please signin again to refresh this"))
+		return nil, ex.NewErr(ex.ErrTokenExpired{}, err, "Authentication expired, please sign again", "TokenStr.Parse/jwt.Parse()")
 	}
 	// parse the claims and then send back the custom token
 	if claims, ok := tok.Claims.(jwt.MapClaims); ok && tok.Valid {
@@ -82,7 +83,8 @@ func (ts TokenStr) Parse(secret string) (*JWTok, error) {
 			UUID:  claims["uuid"].(string),
 		}, nil
 	}
-	return nil, ErrExpiredTok(fmt.Errorf("The token is an expired token. Please signin again to refresh this"))
+	// NOTE : if the token has expired the function shoudl fail at Parse itself, this is redundant but we will keep it
+	return nil, ex.NewErr(ex.ErrTokenExpired{}, err, "Authentication expired, please sign again", "TokenStr.Parse/tok.Valid")
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
