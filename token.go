@@ -102,7 +102,7 @@ func VerifyClaims(user string, tok *jwt.Token) bool {
 
 // newAuthToken : given the user id, and the role, this will generate token with relevant expiry
 // https://godoc.org/github.com/dgrijalva/jwt-go#example-New--Hmac
-func newAuthToken(user string, role int, secret string) *JWTok {
+func newAuthToken(user string, role int) *JWTok {
 	uu := uuid.New().String()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user": user,
@@ -120,7 +120,7 @@ func newAuthToken(user string, role int, secret string) *JWTok {
 }
 
 // newRefrToken : given the user id, role this will generate the token with relevant expiry
-func newRefrToken(user string, role int, secret string) *JWTok {
+func newRefrToken(user string, role int) *JWTok {
 	uu := uuid.New().String()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user": user,
@@ -138,6 +138,6 @@ func newRefrToken(user string, role int, secret string) *JWTok {
 }
 
 // NewTokenPair : generates a token pair, ready to be cached and shipped across http
-func NewTokenPair(user, authSecret, refrSecret string, role int) (*JWTok, *JWTok) {
-	return newAuthToken(user, role, authSecret), newRefrToken(user, role, refrSecret)
+func NewTokenPair(user string, role int) (*JWTok, *JWTok) {
+	return newAuthToken(user, role), newRefrToken(user, role)
 }
