@@ -115,7 +115,7 @@ func (ua *UserAccounts) IsRegistered(email string) bool {
 func (ua *UserAccounts) InsertAccount(u *UserAccDetails) error {
 	log.Debugf("Now registering a new user account")
 	if u == nil || !emailIsOk(u.Email) || !passwdIsOk(u.Passwd) {
-		return ex.NewErr(&ex.ErrInvalid{}, nil, "Failed to insert user account", "UserAccounts.InsertAccount/ua.Insert()")
+		return ex.NewErr(&ex.ErrInvalid{}, nil, "Email or the password of the account being inserted is invalid", "UserAccounts.InsertAccount/ua.Insert()")
 	}
 	if ua.IsRegistered(u.Email) {
 		return ex.NewErr(&ex.ErrDuplicate{}, nil, "Cannot re-register an account that already is", "UserAccounts.InsertAccount/ua.IsRegistered()")
