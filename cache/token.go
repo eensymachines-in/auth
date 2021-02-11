@@ -1,4 +1,4 @@
-package auth
+package cache
 
 /*
 author		: kneerunjun@gmail.com
@@ -17,11 +17,11 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	// https://www.allkeysgenerator.com/Random/Security-Encryption-Key-Generator.aspx
-	authSecret = "p3s6v9y$B?E(H+MbQeThWmZq4t7w!z%C"
-	refrSecret = "UkXp2s5v8y/A?D(G+KbPeShVmYq3t6w9"
-)
+// const (
+// 	// https://www.allkeysgenerator.com/Random/Security-Encryption-Key-Generator.aspx
+// 	authSecret = "p3s6v9y$B?E(H+MbQeThWmZq4t7w!z%C"
+// 	refrSecret = "UkXp2s5v8y/A?D(G+KbPeShVmYq3t6w9"
+// )
 
 // ++++++++++++++++++++++++++++++++++ Errors +++++++++++++++++++++++++++++++++
 
@@ -52,6 +52,35 @@ func (jt *JWTok) ToString(secret string) (TokenStr, error) {
 	return TokenStr(str), nil
 }
 
+// HasElevation : checks to see if the token has sufficient elevation against the role expected
+func (jt *JWTok) HasElevation(elev int) bool {
+	return jt.Role >= elev
+}
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+// ++++++++++++++++++++++++++++++++ Constructors++++++++++++++++++++++++++++++++++++++++++++
+
+// NewToken : constructs a new token ready to be pushed to cache
+// https://godoc.org/github.com/dgrijalva/jwt-go#example-New--Hmac
+// dur : expiry delta duration for the token
+func NewToken(user string, role int, dur time.Duration) *JWTok {
+	uu := uuid.New().String()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user": user,
+		"role": role,
+		"uuid": uu,
+		"exp":  time.Now().Add(dur).Unix(), //note this is the time AT which the token expires as unix seconds
+	})
+	return &JWTok{
+		Token: token,
+		User:  user,
+		Role:  role,
+		UUID:  uu,
+		Exp:   dur,
+	}
+}
+
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 // ++++++++++++++++++++++++++++++ Token as string ++++++++++++++++++++++++++++++++++++++++++++++
@@ -65,14 +94,14 @@ func (ts TokenStr) Parse(secret string) (*JWTok, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			// return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-			return nil, ex.NewErr(ex.ErrInvalid{}, nil, "Failed to read authorization, please contact an admin", "TokenStr.Parse/token.Method.()")
+			return nil, ex.NewErr(&ex.ErrInvalid{}, nil, "Failed to read authorization, please contact an admin", "TokenStr.Parse/token.Method.()")
 		}
 		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
 		return []byte(secret), nil
 	})
 	if err != nil {
-		// token has expired , and this can then send back the relevant error
-		return nil, ex.NewErr(ex.ErrTokenExpired{}, err, "Authentication expired, please sign again", "TokenStr.Parse/jwt.Parse()")
+		// return nil, ex.NewErr(ex.ErrTokenExpired{}, err, "Authentication expired, please sign again", "TokenStr.Parse/jwt.Parse()")
+		return nil, ex.NewErr(&ex.ErrTokenExpired{}, err, "Authentication expired, please sign again", "TokenStr.Parse/tok.Valid")
 	}
 	// parse the claims and then send back the custom token
 	if claims, ok := tok.Claims.(jwt.MapClaims); ok && tok.Valid {
@@ -84,7 +113,7 @@ func (ts TokenStr) Parse(secret string) (*JWTok, error) {
 		}, nil
 	}
 	// NOTE : if the token has expired the function shoudl fail at Parse itself, this is redundant but we will keep it
-	return nil, ex.NewErr(ex.ErrTokenExpired{}, err, "Authentication expired, please sign again", "TokenStr.Parse/tok.Valid")
+	return nil, ex.NewErr(&ex.ErrTokenExpired{}, err, "Authentication expired, please sign again", "TokenStr.Parse/tok.Valid")
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -96,48 +125,4 @@ func VerifyClaims(user string, tok *jwt.Token) bool {
 	} else {
 		return false
 	}
-}
-
-// ++++++++++++++++++++++++++++++++ Constructors++++++++++++++++++++++++++++++++++++++++++++
-
-// newAuthToken : given the user id, and the role, this will generate token with relevant expiry
-// https://godoc.org/github.com/dgrijalva/jwt-go#example-New--Hmac
-func newAuthToken(user string, role int) *JWTok {
-	uu := uuid.New().String()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user": user,
-		"role": role,
-		"uuid": uu,
-		"exp":  time.Now().Add(authExp).Unix(), //note this is the time AT which the token expires as unix seconds
-	})
-	return &JWTok{
-		Token: token,
-		User:  user,
-		Role:  role,
-		UUID:  uu,
-		Exp:   authExp,
-	}
-}
-
-// newRefrToken : given the user id, role this will generate the token with relevant expiry
-func newRefrToken(user string, role int) *JWTok {
-	uu := uuid.New().String()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user": user,
-		"role": role,
-		"uuid": uu,
-		"exp":  time.Now().Add(refrExp).Unix(), //note this is the time AT which the token expires as unix seconds
-	})
-	return &JWTok{
-		Token: token,
-		User:  user,
-		Role:  role,
-		UUID:  uu,
-		Exp:   refrExp,
-	}
-}
-
-// NewTokenPair : generates a token pair, ready to be cached and shipped across http
-func NewTokenPair(user string, role int) (*JWTok, *JWTok) {
-	return newAuthToken(user, role), newRefrToken(user, role)
 }
