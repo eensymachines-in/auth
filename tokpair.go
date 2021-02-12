@@ -1,4 +1,4 @@
-package cache
+package auth
 
 // TokenPair : represents one login entry in the cache
 type TokenPair struct {

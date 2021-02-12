@@ -1,4 +1,4 @@
-package acc
+package auth
 
 import (
 	"encoding/json"

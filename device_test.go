@@ -1,4 +1,4 @@
-package device
+package auth
 
 import (
 	"encoding/json"
