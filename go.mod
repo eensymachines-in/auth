@@ -1,4 +1,4 @@
-module github.com/eensymachines-in/auth
+module github.com/eensymachines-in/auth/v2
 
 go 1.15
 
