@@ -1,4 +1,4 @@
-package auth
+package acc
 
 /*UserAccount management functions here
 This helps to keep the shape - CRUD the user account

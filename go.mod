@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/eensymachines-in/errx v0.0.0-20210206001149-f1ca67d496f7
+	github.com/eensymachines-in/errx v0.0.0-20210212112807-284bd11df6f3
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
 	github.com/go-redis/redis/v7 v7.4.0
 	github.com/golang/protobuf v1.4.3 // indirect
