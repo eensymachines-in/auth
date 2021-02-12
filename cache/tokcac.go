@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"fmt"
 	"time"
 
 	ex "github.com/eensymachines-in/errx"
@@ -58,7 +57,6 @@ func (tc *TokenCache) RefreshUser(refr *JWTok, result *TokenPair) error {
 // the way we load them in the cache is peculiar
 func (tc *TokenCache) LoginUser(email string, role int, result *TokenPair) error {
 	pair := &TokenPair{Auth: NewToken(email, role, AuthExp), Refr: NewToken(email, role, RefrExp)}
-	fmt.Printf("Login user : now showing the refresh token %v", pair.Refr)
 	_, err := tc.Client.SetNX(pair.Auth.UUID, pair.Refr.UUID, AuthExp).Result()
 	if err != nil {
 		ex.NewErr(ex.ErrCacheQuery{}, err, "Failed to refresh user authentication", "TokenCache.RefreshUser/tc.Client.SetNX()")
