@@ -88,6 +88,33 @@ Updating user account details except the password and email. Passwords can be up
 - `ErrNotFound` account is not registered at all.
 - `ErrQuery` when querying the database itself fails
 
+### Cache authorization:
+----------
+
+Cache supports tokenizations and functions needed for the same are included in this package
+
+```go
+func (tc *TokenCache) TokenStatus(tok *JWTok) error
+```
+
+Helps you to query the status of the token in the cache
+
+- `ErrTokenExpired` - will indicate the token has expired 
+- `ErrCacheQuery` - failed cache gateway
+
+```go
+func (tc *TokenCache) LoginUser(email string, role int, result *TokenPair) error
+```
+Used for authentication, and creation of server side session for each of the instance the user logs into. A single user can log into the same cache for multiple instances, since the token is UUID based. 
+
+- `ErrCacheQuery` - when the login has failed, and the cache was unreachable 
+
+```go 
+func (tc *TokenCache) LogoutToken(tok *JWTok) error
+```
+What was created by the login will be erased by logout, logout happens a token at a time. This has more to do with the way tokens are sent over HTTP. Typically an API service will be expected to send 2 `LogoutToken` requests to completely logout a single user
+
+
 #### Device authentication
 -----------
 
