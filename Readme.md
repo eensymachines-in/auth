@@ -18,6 +18,54 @@ go get github.com/eensymachines-in/auth/v2
 `v0.0.0` and `v1.x.x` are shadowed out, and first stable version itself is `v2.0.0`. We realised that the earlier stable builds are not much of use.
 Hence I would recommend v2 onwards for your needs. Versions ahead of this would fork out on independent branches 
 
+### User Account :
+----------
+
+User account has the fields 
+- Email 
+- password 
+- Name
+- Phone 
+- Location
+- Role - level
+
+```go
+func (ua *UserAccounts) InsertAccount(u *UserAccDetails) error 
+
+```
+When creating a new user account, you need to use the `UserAccDetails` format. Email and passwords are checked for legitimacy, and also the email is unique. 
+
+- `ErrInvalid` - invalid password or email, does not meet the exectations
+- `ErrDuplicate` - if account with identical email is already registered
+- `ErrQuery` - if the operation of persisting an account itself fails.
+
+Removing user account (Needs elevation)
+
+```go
+func (ua *UserAccounts) RemoveAccount(email string) error 
+```
+Updating the account password 
+
+```go
+func (ua *UserAccounts) UpdateAccPasswd(newUser *UserAcc) error 
+```
+Authenticating a user account 
+
+```go
+func (ua *UserAccounts) Authenticate(u *UserAcc) (bool, error) 
+```
+
+Getting user account details 
+
+```go
+func (ua *UserAccounts) AccountDetails(email string) (*UserAccDetails, error)
+```
+
+Updating user account details, except the password 
+
+```go
+func (ua *UserAccounts) UpdateAccDetails(newDetails *UserAccDetails) error
+```
 
 #### Device authentication
 -----------
