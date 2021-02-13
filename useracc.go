@@ -169,8 +169,7 @@ func (ua *UserAccounts) Authenticate(u *UserAcc) (bool, error) {
 		return false, ex.NewErr(&ex.ErrInvalid{}, nil, "Account to be authenticated cannot have empty emal/password", "UserAccounts.Authenticate")
 	}
 	if !ua.IsRegistered(u.Email) {
-		// FIXME: incase the acc is not registered, this shoudl send back ErrNotFound and not ErrInvalid
-		return false, ex.NewErr(&ex.ErrInvalid{}, nil, "Unregistered accounts cannot be authenticated", "UserAccounts.Authenticate/ua.IsRegistered()")
+		return false, ex.NewErr(&ex.ErrNotFound{}, nil, "Unregistered accounts cannot be authenticated", "UserAccounts.Authenticate/ua.IsRegistered()")
 	}
 	dbUser := &UserAcc{}
 	if err := ua.Find(u.SelectQ()).One(dbUser); err != nil {
