@@ -1,5 +1,7 @@
-### Getting the package:
+
+### Why this package: 
 -----------
+A package that runs beneath web-microservice to enable basic authentication and authorization. Please note since this in context of IoT solutions, we consider devices too in addition to user accounts. While user accounts are `email` based devices are `serial` based. Devices dont use user credentials to identify/authenticate/authorize itself. Also users have to registered by admins while devices can register themselves.
 
 When developing IoT solutions you would need 
 1. User account management + authentication 
@@ -7,6 +9,9 @@ When developing IoT solutions you would need
 3. Authorization using web tokens - at basic level
 
 This package will provide functions / interfaces to get that same done. Im expecting you would want to build a `AuthAPI` __microservice__ atop this package.
+
+### Getting the package:
+-----------
 
 ```
 go get github.com/eensymachines-in/auth/v2
