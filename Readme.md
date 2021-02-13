@@ -39,33 +39,49 @@ When creating a new user account, you need to use the `UserAccDetails` format. E
 - `ErrDuplicate` - if account with identical email is already registered
 - `ErrQuery` - if the operation of persisting an account itself fails.
 
-Removing user account (Needs elevation)
-
 ```go
 func (ua *UserAccounts) RemoveAccount(email string) error 
 ```
-Updating the account password 
+Removing user account, wiping the user account details from the persistance actually needs role elevation. Only admins should be doing this. But this has to be implemented on the API level, here there is no such restriction from this package. You need to supply the email (unique) to remove the account registration completely. 
+
+- `ErrQuery` when the operation on the persistence database
+
 
 ```go
 func (ua *UserAccounts) UpdateAccPasswd(newUser *UserAcc) error 
 ```
+User account password can be updated using this feature. `UserAcc` format and the same logic to check the password  as in `InertAccount`
+
+- `ErrNotFound` when the account itself is not found registered
+- `ErrInvalid` when the new password is invalid
+- `ErrQuery` when the operation on the persisting database fails
+
 Authenticating a user account 
 
 ```go
 func (ua *UserAccounts) Authenticate(u *UserAcc) (bool, error) 
 ```
+Verification of the password for the account against the claim. The Claimed credentials are in the `UserAcc` format
 
-Getting user account details 
+- `ErrInvalid` when the email, password is invalid or if the account is not registered itself
+- `ErrQuery` when querying the database itself fails
+- `ErrLogin` when the password is mismatching 
 
 ```go
 func (ua *UserAccounts) AccountDetails(email string) (*UserAccDetails, error)
 ```
+You can fetch the account details sans the password with this command 
 
-Updating user account details, except the password 
+- `ErrInvalid` when the email of the account details being requested is empty or invalid. 
+- `ErrNotFound` when the account itself is not found registered 
 
 ```go
 func (ua *UserAccounts) UpdateAccDetails(newDetails *UserAccDetails) error
 ```
+Updating user account details except the password and email. Passwords can be updated only using `UpdateAccPasswd`
+
+- `ErrNotFound` account is not registered at all.
+- `ErrQuery` when querying the database itself fails
 
 #### Device authentication
 -----------
