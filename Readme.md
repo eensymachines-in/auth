@@ -1,3 +1,24 @@
+### Getting the package:
+-----------
+
+When developing IoT solutions you would need 
+1. User account management + authentication 
+2. Device registration, authentication, blacklisting 
+3. Authorization using web tokens - at basic level
+
+This package will provide functions / interfaces to get that same done. Im expecting you would want to build a `AuthAPI` __microservice__ atop this package.
+
+```
+go get github.com/eensymachines-in/auth/v2
+
+```
+#### Where are the lower versions ?
+--------
+
+`v0.0.0` and `v1.x.x` are shadowed out, and first stable version itself is `v2.0.0`. We realised that the earlier stable builds are not much of use.
+Hence I would recommend v2 onwards for your needs. Versions ahead of this would fork out on independent branches 
+
+
 #### Device authentication
 -----------
 
