@@ -94,6 +94,25 @@ Updating user account details except the password and email. Passwords can be up
 Cache supports tokenizations and functions needed for the same are included in this package
 
 ```go
+cac := &TokenCache{Client: redis.NewClient(&redis.Options{
+    Addr:     "serverip:6379",
+    Password: "", // no password set
+    DB:       0,  // use default DB
+})}
+```
+rolling up a new `TokenCache` from a redis Client is simple composition. 
+
+
+```go
+func (tc *TokenCache) Ping() error 
+
+```
+Just to know if you are connected to the auth cache. 
+
+- `ErrCacheQuery` would mean the cache isnt connected
+
+
+```go
 func (tc *TokenCache) TokenStatus(tok *JWTok) error
 ```
 
@@ -113,6 +132,11 @@ Used for authentication, and creation of server side session for each of the ins
 func (tc *TokenCache) LogoutToken(tok *JWTok) error
 ```
 What was created by the login will be erased by logout, logout happens a token at a time. This has more to do with the way tokens are sent over HTTP. Typically an API service will be expected to send 2 `LogoutToken` requests to completely logout a single user
+
+```go
+func (tc *TokenCache) RefreshUser(refr *JWTok, result *TokenPair) error
+```
+Using the refresh token a new authentication token can be re-generated. Authentication tokens are short lived, while Refresh tokens live a bit longer to help re-hydrate the authentication for an extended time. 
 
 
 #### Device authentication
