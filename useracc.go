@@ -205,7 +205,9 @@ func (ua *UserAccounts) AccountDetails(email string) (*UserAccDetails, error) {
 // ErrNotFound : account not registered
 // ErrQueryFailed: database gateway fails
 func (ua *UserAccounts) UpdateAccDetails(newDetails *UserAccDetails) error {
-	log.Debugf("Now updating account details for %s", newDetails.Email)
+	if newDetails.Loc == "" || newDetails.Name == "" || newDetails.Phone == "" {
+		return ex.NewErr(&ex.ErrInvalid{}, nil, "Invalid account details, check and send again", "UserAccounts.UpdateAccDetails")
+	}
 	if !ua.IsRegistered(newDetails.Email) {
 		return ex.NewErr(&ex.ErrNotFound{}, nil, "Cannot update for unregistered accounts", "UserAccounts.UpdateAccDetails")
 	}
