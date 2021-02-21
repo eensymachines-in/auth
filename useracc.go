@@ -100,6 +100,29 @@ func emailIsOk(e string) bool {
 	return matched
 }
 
+func phNoIsOk(p string) bool {
+	// Phone number must have the country code with + symbol and enough digits to make it a phone number
+	matched, _ := regexp.Match(`^[+[:digit:]]{1,}$`, []byte(p))
+	return matched
+}
+func usrAccCheck(uad *UserAccDetails) error {
+	// this is a composite check on the user account details
+	// sends error incase one / more vital fields are inconsistent
+	if uad == nil {
+		return ex.NewErr(&ex.ErrInvalid{}, nil, "Account being inserted is nil/invalid", "usrAccCheck")
+	}
+	if !emailIsOk(uad.Email) {
+		return ex.NewErr(&ex.ErrInvalid{}, nil, "Invalid email for account being inserted", "usrAccCheck")
+	}
+	if !passwdIsOk(uad.Passwd) {
+		return ex.NewErr(&ex.ErrInvalid{}, nil, "Invalid password for account being inserted", "usrAccCheck")
+	}
+	if !phNoIsOk(uad.Phone) {
+		return ex.NewErr(&ex.ErrInvalid{}, nil, "Invalid phone for account being inserted", "usrAccCheck")
+	}
+	return nil
+}
+
 // ++++++++++++++++++++++++++++++ UserAccounts procedures +++++++++++++++++++++++++++++++++++
 
 // IsRegistered : checks to see if user account is registered
@@ -113,9 +136,8 @@ func (ua *UserAccounts) IsRegistered(email string) bool {
 
 // InsertAccount : new user account
 func (ua *UserAccounts) InsertAccount(u *UserAccDetails) error {
-	log.Debugf("Now registering a new user account")
-	if u == nil || !emailIsOk(u.Email) || !passwdIsOk(u.Passwd) {
-		return ex.NewErr(&ex.ErrInvalid{}, nil, "Email or the password of the account being inserted is invalid", "UserAccounts.InsertAccount/ua.Insert()")
+	if err := usrAccCheck(u); err != nil {
+		return err
 	}
 	if ua.IsRegistered(u.Email) {
 		return ex.NewErr(&ex.ErrDuplicate{}, nil, "Cannot re-register an account that already is", "UserAccounts.InsertAccount/ua.IsRegistered()")
@@ -205,8 +227,14 @@ func (ua *UserAccounts) AccountDetails(email string) (*UserAccDetails, error) {
 // ErrNotFound : account not registered
 // ErrQueryFailed: database gateway fails
 func (ua *UserAccounts) UpdateAccDetails(newDetails *UserAccDetails) error {
-	if newDetails.Loc == "" || newDetails.Name == "" || newDetails.Phone == "" {
-		return ex.NewErr(&ex.ErrInvalid{}, nil, "Invalid account details, check and send again", "UserAccounts.UpdateAccDetails")
+	if newDetails.Loc == "" {
+		return ex.NewErr(&ex.ErrInvalid{}, nil, "Invalid account location to update", "UserAccounts.UpdateAccDetails")
+	}
+	if newDetails.Name == "" {
+		return ex.NewErr(&ex.ErrInvalid{}, nil, "Invalid account Name to update", "UserAccounts.UpdateAccDetails")
+	}
+	if !phNoIsOk(newDetails.Phone) {
+		return ex.NewErr(&ex.ErrInvalid{}, nil, "Invalid account Phone to update", "UserAccounts.UpdateAccDetails")
 	}
 	if !ua.IsRegistered(newDetails.Email) {
 		return ex.NewErr(&ex.ErrNotFound{}, nil, "Cannot update for unregistered accounts", "UserAccounts.UpdateAccDetails")
