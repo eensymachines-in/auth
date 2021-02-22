@@ -281,7 +281,7 @@ func (drc *DeviceRegColl) LockDevice(serial string) error {
 		return ex.NewErr(&ex.ErrQuery{}, nil, "Failed to check if device is registered", "LockDevice/IsDeviceRegistered")
 	}
 	if !isReg {
-		return ex.NewErr(&ex.ErrInvalid{}, nil, "Unregistered devices cannot be locked", "LockDevice/isReg")
+		return ex.NewErr(&ex.ErrNotFound{}, nil, "Unregistered devices cannot be locked", "LockDevice/isReg")
 	}
 	if err := drc.Update(qDeviceOfSerial(serial), bson.M{"$set": bson.M{"lock": true}}); err != nil {
 		return ex.NewErr(&ex.ErrQuery{}, nil, "Failed to lock device, server gateway failed", "LockDevice/drc.Update()")
@@ -296,7 +296,7 @@ func (drc *DeviceRegColl) UnLockDevice(serial string) error {
 		return ex.NewErr(&ex.ErrQuery{}, nil, "Failed to check if device is registered", "UnLockDevice/IsDeviceRegistered")
 	}
 	if !isReg {
-		return ex.NewErr(&ex.ErrInvalid{}, nil, "Unregistered devices cannot be un-locked", "UnLockDevice/isReg")
+		return ex.NewErr(&ex.ErrNotFound{}, nil, "Unregistered devices cannot be un-locked", "UnLockDevice/isReg")
 	}
 	if err := drc.Update(qDeviceOfSerial(serial), bson.M{"$set": bson.M{"lock": false}}); err != nil {
 		return ex.NewErr(&ex.ErrQuery{}, nil, "Failed to lock device, server gateway failed", "UnLockDevice/drc.Update()")
