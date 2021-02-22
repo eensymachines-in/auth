@@ -267,6 +267,13 @@ func (drc *DeviceRegColl) RemoveDeviceReg(serial string) error {
 	if serial == "" {
 		return ex.NewErr(&ex.ErrInvalid{}, nil, "Serial number of the device to remove cannot be empty", "RemoveDeviceReg")
 	}
+	isreg, err := drc.IsDeviceRegistered(serial)
+	if err != nil {
+		return err
+	}
+	if !isreg {
+		return ex.NewErr(&ex.ErrNotFound{}, nil, "Failed to remove device", "RemoveDeviceReg/drc.Remove()")
+	}
 	if err := drc.Remove(qDeviceOfSerial(serial)); err != nil {
 		return ex.NewErr(&ex.ErrQuery{}, nil, "Failed to remove device", "RemoveDeviceReg/drc.Remove()")
 	}
