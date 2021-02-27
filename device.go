@@ -75,6 +75,35 @@ func ThisDeviceReg(u string) (*DeviceReg, error) {
 	return &result, nil
 }
 
+// DeviceStatusOnCloud : gets the device status on the cloud, pass in the url
+// use this from the device to check for device vital stats as registered on the cloud
+func DeviceStatusOnCloud(url string, status *DeviceStatus) error {
+	status = nil
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("getHttp: Failed to request device details @ %s, %s", url, err)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		// FIXME: issue #18 404 woudl not be an error but an empty device status being returned
+		return nil
+	}
+	if resp.StatusCode == http.StatusInternalServerError {
+		return fmt.Errorf("getHttp: Internal server error  getting device details")
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("getHttp: failed, Unknown/invalid response from server")
+	}
+	defer resp.Body.Close()
+	result := &DeviceStatus{}
+	err = json.Unmarshal(body, result)
+	if err != nil {
+		return ex.NewErr(&ex.ErrInvalid{}, err, "Failed to read DeviceStatus", "getHTTP/json.Unmarshal")
+	}
+	*status = *result
+	return nil
+}
+
 // getHTTP : generic http request with result reading function that is customizable
 func getHTTP(url string, readDevStatus func(s *DeviceStatus) error) error {
 	resp, err := http.Get(url)
@@ -82,7 +111,9 @@ func getHTTP(url string, readDevStatus func(s *DeviceStatus) error) error {
 		return fmt.Errorf("getHttp: Failed to request device details @ %s, %s", url, err)
 	}
 	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("getHttp: Bad request, check the inputs and send again")
+		// FIXME: issue #18 404 woudl not be an error but an empty device status being returned
+		// return fmt.Errorf("getHttp: Bad request, check the inputs and send again")
+		readDevStatus(&DeviceStatus{})
 	}
 	if resp.StatusCode == http.StatusInternalServerError {
 		return fmt.Errorf("getHttp: Internal problem getting device details")
