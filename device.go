@@ -78,7 +78,6 @@ func ThisDeviceReg(u string) (*DeviceReg, error) {
 // DeviceStatusOnCloud : gets the device status on the cloud, pass in the url
 // use this from the device to check for device vital stats as registered on the cloud
 func DeviceStatusOnCloud(url string, status *DeviceStatus) error {
-	status = nil
 	resp, err := http.Get(url)
 	if err != nil {
 		return fmt.Errorf("getHttp: Failed to request device details @ %s, %s", url, err)
