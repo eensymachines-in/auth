@@ -9,6 +9,30 @@ import (
 	"gopkg.in/mgo.v2"
 )
 
+func TestEnlistAccs(t *testing.T) {
+	acc := &UserAcc{Email: "kneerunjun@gmail.com", Passwd: "someThickPAss@12"}
+	accDetails := &UserAccDetails{UserAcc: *acc, Loc: "Pune, 411057", Phone: "+914343400545", Name: "Niranjan Awati"}
+	acc1 := &UserAcc{Email: "niranjan_awati@gmail.com", Passwd: "someThickPAss@12"}
+	accDetails1 := &UserAccDetails{UserAcc: *acc1, Loc: "Pune, 411057", Phone: "+914343400545", Name: "Niranjan Awati"}
+
+	session, err := mgo.Dial("localhost:37017")
+	if err != nil {
+		panic(err)
+	}
+	defer session.Close()
+	accColl := session.DB("autolumin").C("userreg")
+	ua := &UserAccounts{Collection: accColl}
+	if err := ua.InsertAccount(accDetails); err != nil {
+		panic(err)
+	}
+	if err := ua.InsertAccount(accDetails1); err != nil {
+		panic(err)
+	}
+	result := []UserAccDetails{}
+	assert.Nil(t, ua.Enlist(&result), "Unexpected error when enlisting user accounts")
+	t.Log(result)
+}
+
 func TestEmailPassChecks(t *testing.T) {
 	assert.True(t, emailIsOk("john.smith@gmail.com"), "Unexpected error when checking emails")
 	assert.True(t, emailIsOk("nirannjan_awati@gmail.com"), "Unexpected error when checking emails")

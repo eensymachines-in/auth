@@ -125,6 +125,16 @@ func usrAccCheck(uad *UserAccDetails) error {
 
 // ++++++++++++++++++++++++++++++ UserAccounts procedures +++++++++++++++++++++++++++++++++++
 
+// Enlist : just sends out a dump of all the user account details
+func (ua *UserAccounts) Enlist(result *[]UserAccDetails) error {
+	all := []UserAccDetails{}
+	if err := ua.Find(bson.M{}).All(&all); err != nil {
+		return ex.NewErr(&ex.ErrQuery{}, err, "Failed to get list of user accounts", "UserAccounts.Enlist")
+	}
+	*result = all
+	return nil
+}
+
 // IsRegistered : checks to see if user account is registered
 func (ua *UserAccounts) IsRegistered(email string) bool {
 	c, _ := ua.Find((&UserAcc{Email: email}).SelectQ()).Count()
