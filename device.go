@@ -356,6 +356,16 @@ type BlacklistColl struct {
 	*mgo.Collection
 }
 
+// Enlist : this shall enlist all the black listed devices
+func (blckcoll *BlacklistColl) Enlist(blacked *[]Blacklist) error {
+	result := []Blacklist{}
+	if err := blckcoll.Find(bson.M{}).All(&result); err != nil {
+		return ex.NewErr(&ex.ErrQuery{}, err, "Failed to get black listed devices", "BlacklistColl/Enlist")
+	}
+	*blacked = result
+	return nil
+}
+
 // Black : will black list the device serial if not already done
 // can be accessed with elevated privileges only
 func (blckcoll *BlacklistColl) Black(bl *Blacklist) error {
